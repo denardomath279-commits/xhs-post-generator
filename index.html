@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小红书投流帖子生成器</title>
+<style>
+  :root {
+    --red: #ff2442;
+    --red-light: #fff0f2;
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #333333;
+    --text-light: #888888;
+    --border: #e8e8e8;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --radius: 12px;
+    --blue: #3b82f6;
+    --blue-light: #eff6ff;
+    --green: #10b981;
+    --green-light: #ecfdf5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--red), #ff6b81);
+    color: white;
+    padding: 32px 20px 28px;
+    text-align: center;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 14px; opacity: 0.9; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  .main-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;
+  }
+  .left-col, .right-col { min-width: 0; }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 16px; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .icon {
+    width: 24px; height: 24px;
+    background: var(--red-light); color: var(--red);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+  textarea, input, select {
+    width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; font-size: 14px; font-family: inherit;
+    transition: border-color 0.2s; outline: none; background: #fff;
+  }
+  textarea:focus, input:focus, select:focus { border-color: var(--red); }
+  textarea { resize: vertical; min-height: 100px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 32px; border: none; border-radius: 10px;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--red), #ff6b81);
+    color: white; width: 100%;
+    box-shadow: 0 4px 16px rgba(255,36,66,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,36,66,0.4); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-sm {
+    padding: 8px 16px; font-size: 13px; border-radius: 8px; font-weight: 500;
+  }
+  .btn-outline {
+    background: white; color: var(--red); border: 1.5px solid var(--red);
+    padding: 8px 16px; font-size: 13px;
+  }
+  .btn-outline:hover { background: var(--red-light); }
+  .btn-blue {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    color: white; border: none;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+  }
+  .btn-blue:hover { box-shadow: 0 4px 12px rgba(59,130,246,0.4); transform: translateY(-1px); }
+  .btn-blue:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-green {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: white; border: none; width: 100%;
+    box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+  }
+  .btn-green:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16,185,129,0.4); }
+  .btn-green:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Output */
+  .output-section { display: none; }
+  .output-section.visible { display: block; }
+  .output-block {
+    background: #fafafa; border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; margin-bottom: 16px; position: relative;
+  }
+  .output-label {
+    font-size: 13px; font-weight: 600; color: var(--red);
+    margin-bottom: 8px; letter-spacing: 0.5px;
+  }
+  .output-content {
+    font-size: 14px; line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+  }
+  .copy-btn {
+    position: absolute; top: 12px; right: 12px;
+    background: white; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer;
+    color: var(--text-light); transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--red); border-color: var(--red); }
+
+  /* Image card */
+  .img-card {
+    background: white; border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; margin-bottom: 14px;
+  }
+  .img-card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: var(--blue-light); border-bottom: 1px solid #d0e3f7;
+  }
+  .img-card-label { font-size: 13px; font-weight: 600; color: var(--blue); }
+  .img-card-actions { display: flex; gap: 8px; align-items: center; }
+  .img-card-body { padding: 14px 16px; }
+  .img-card-prompt {
+    font-size: 13px; line-height: 1.7; color: #555;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .img-card-preview {
+    padding: 0; display: flex; justify-content: center; align-items: center;
+    min-height: 80px; background: #f8f9fa;
+  }
+  .img-card-preview img {
+    max-width: 100%; max-height: 400px; display: block;
+  }
+  .img-card-preview .placeholder {
+    padding: 30px; text-align: center; color: #bbb; font-size: 13px;
+  }
+  .img-status {
+    font-size: 12px; color: var(--text-light); padding: 0 16px 12px;
+  }
+  .img-status.success { color: var(--green); }
+  .img-status.error { color: var(--red); }
+
+  .loading-spinner {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.3); border-top-color: white;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  .loading-spinner-sm {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(59,130,246,0.2); border-top-color: var(--blue);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .template-toggle {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-light); cursor: pointer; margin-bottom: 12px;
+  }
+  .template-toggle:hover { color: var(--red); }
+  .template-toggle .arrow { transition: transform 0.2s; }
+  .template-toggle.open .arrow { transform: rotate(90deg); }
+  .template-area { display: none; }
+  .template-area.visible { display: block; }
+  .tip { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+
+  .toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #333; color: white; padding: 10px 24px;
+    border-radius: 8px; font-size: 14px; opacity: 0;
+    transition: all 0.3s; z-index: 100; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .post-preview {
+    background: white; border-radius: 12px; border: 1px solid var(--border);
+    overflow: hidden; max-width: 400px; margin: 0 auto;
+  }
+  .preview-images {
+    display: grid; grid-template-columns: 1fr; gap: 2px;
+  }
+  .preview-images img {
+    width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block;
+  }
+  .preview-text { padding: 16px; }
+  .preview-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; line-height: 1.4; }
+  .preview-body { font-size: 13px; line-height: 1.8; color: #555; white-space: pre-wrap; }
+
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .ai-log-panel { position: static; }
+  }
+  @media (max-width: 600px) {
+    .header { padding: 24px 16px 20px; }
+    .header h1 { font-size: 22px; }
+    .container { padding: 14px; }
+    .card { padding: 18px; }
+    .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  }
+  /* AI Log Panel */
+  .ai-log-panel {
+    background: #1e1e2e; border-radius: var(--radius); overflow: hidden;
+    box-shadow: var(--shadow); position: sticky; top: 20px;
+  }
+  .ai-log-header {
+    background: #2d2d44; padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #3d3d55;
+  }
+  .ai-log-header .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .ai-log-header .dot.green { background: #10b981; }
+  .ai-log-header .dot.yellow { background: #f59e0b; }
+  .ai-log-header .dot.red { background: #ef4444; }
+  .ai-log-header .title { color: #a0a0c0; font-size: 13px; font-weight: 600; margin-left: 8px; }
+  .ai-log-body {
+    padding: 16px 18px; max-height: 75vh; overflow-y: auto;
+    font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+    font-size: 13px; line-height: 1.7; color: #c8c8e0;
+  }
+  .ai-log-body::-webkit-scrollbar { width: 6px; }
+  .ai-log-body::-webkit-scrollbar-thumb { background: #3d3d55; border-radius: 3px; }
+  .log-entry { margin-bottom: 12px; }
+  .log-time { color: #666680; font-size: 11px; }
+  .log-label { font-weight: 600; }
+  .log-label.thinking { color: #a78bfa; }
+  .log-label.generating { color: #60a5fa; }
+  .log-label.success { color: #34d399; }
+  .log-label.error { color: #f87171; }
+  .log-label.info { color: #fbbf24; }
+  .log-content { color: #e0e0f0; white-space: pre-wrap; word-break: break-word; }
+  .log-stream { color: #c8c8e0; white-space: pre-wrap; word-break: break-word; border-left: 2px solid #3d3d55; padding-left: 12px; margin-top: 4px; }
+  .cursor-blink { display: inline-block; width: 7px; height: 14px; background: #a78bfa; animation: blink 1s infinite; vertical-align: middle; margin-left: 2px; }
+  @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+  .ai-log-empty { color: #555570; text-align: center; padding: 40px 20px; font-size: 14px; }
+
+  /* Lightbox */
+  .lightbox {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 9999; cursor: zoom-out;
+    justify-content: center; align-items: center;
+  }
+  .lightbox.active { display: flex; }
+  .lightbox img {
+    max-width: 92vw; max-height: 92vh; object-fit: contain; border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>小红书投流帖子生成器</h1>
+  <p>Claude 4.6 生成文案 + Google Gemini 生成配图，一站式完成</p>
+</div>
+
+<div class="container">
+
+  <!-- API 配置 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">1</span> API 配置</div>
+
+    <div class="form-group">
+      <label>文案 API 服务商</label>
+      <select id="textProvider" onchange="onTextProviderChange()">
+        <option value="yunwu">云雾AI（推荐，国内直连）</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="anthropic">Anthropic Claude（直连，需翻墙）</option>
+        <option value="custom_openai">自定义中转站（兼容 OpenAI 格式）</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>文案 API Key</label>
+        <input type="password" id="anthropicKey" placeholder="输入你的 API Key">
+      </div>
+      <div class="form-group">
+        <label>文案模型</label>
+        <input type="text" id="textModel" value="claude-opus-4-6" placeholder="模型名称">
+      </div>
+    </div>
+
+    <div class="form-group" id="textBaseUrlGroup" style="display:none;">
+      <label>文案 API 地址</label>
+      <input type="text" id="textBaseUrl" placeholder="https://your-proxy.com/v1/chat/completions">
+    </div>
+
+    <div style="height:16px;"></div>
+
+    <div class="form-group">
+      <label>图片 API 服务商</label>
+      <select id="imageProvider" onchange="onImageProviderChange()">
+        <option value="yunwu_img">云雾AI（推荐，国内直连）</option>
+        <option value="openrouter_img">OpenRouter</option>
+        <option value="google">Google Gemini（直连，需翻墙）</option>
+        <option value="custom_img">自定义中转站</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>图片 API Key</label>
+        <input type="password" id="googleKey" placeholder="输入你的 API Key">
+      </div>
+      <div class="form-group">
+        <label>图片模型</label>
+        <input type="text" id="imageModel" value="gemini-3.1-flash-image-preview" placeholder="图片生成模型">
+        <p class="tip" style="margin-top:2px;">云雾AI 图片模型：gemini-3.1-flash-image-preview (Nano Banana 2)</p>
+      </div>
+    </div>
+
+    <div class="form-group" id="imgBaseUrlGroup" style="display:none;">
+      <label>图片 API 地址</label>
+      <input type="text" id="imgBaseUrl" placeholder="https://your-proxy.com/v1/chat/completions">
+    </div>
+
+    <p class="tip">所有 API Key 仅在你的浏览器本地使用，不会上传到任何服务器。</p>
+    <div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:12px;margin-top:12px;font-size:13px;color:#8c6900;line-height:1.7;">
+      <strong>国内用户推荐配置：</strong><br>
+      1. 使用「云雾AI」作为服务商（默认已选择，国内直连无需翻墙）<br>
+      2. 文案和图片服务商都选择「云雾AI」<br>
+      3. 填入云雾AI 的 API Key 即可<br>
+      4. 文案模型：claude-opus-4-6 | 图片模型：gemini-3.1-flash-image-preview (Nano Banana 2)
+    </div>
+  </div>
+
+  <!-- 左右两栏布局 -->
+  <div class="main-layout">
+
+    <!-- 左栏：产品信息 + 提示词 + 生成按钮 -->
+    <div class="left-col">
+
+  <!-- 产品信息 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">2</span> 产品信息</div>
+
+    <div class="form-group">
+      <label>已保存的产品</label>
+      <div style="display:flex;gap:8px;">
+        <select id="savedProducts" onchange="loadProduct()" style="flex:1;">
+          <option value="">-- 新建产品 --</option>
+        </select>
+        <button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;" onclick="saveProduct()">保存产品</button>
+        <button class="btn btn-sm btn-outline" style="padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;color:var(--red);border-color:var(--red);" onclick="deleteProduct()">删除</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>产品名称</label>
+      <input type="text" id="productName" placeholder="例如：某某精华液、XX 减脂营">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>产品类型</label>
+        <input type="text" id="productType" placeholder="例如：护肤品、课程、食品">
+      </div>
+      <div class="form-group">
+        <label>目标人群</label>
+        <input type="text" id="targetAudience" placeholder="例如：25-35岁女性、宝妈">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>核心卖点 / 产品描述</label>
+      <textarea id="productDesc" rows="4" placeholder="详细描述产品的核心卖点、功效、成分、价格优势等关键信息...&#10;&#10;写得越详细，生成内容的质量越高。"></textarea>
+    </div>
+    <div class="form-group">
+      <label>产品主图（可选，上传后 AI 会参考你的产品外观生成图片提示词）</label>
+      <div id="imgUploadArea" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:#fafafa;" onclick="document.getElementById('productImages').click();" ondragover="event.preventDefault();this.style.borderColor='var(--red)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleImageDrop(event);">
+        <div style="color:var(--text-light);font-size:14px;">点击上传或拖拽图片到此处</div>
+        <div style="color:#bbb;font-size:12px;margin-top:4px;">支持 JPG/PNG，最多 3 张</div>
+        <input type="file" id="productImages" accept="image/*" multiple style="display:none;" onchange="handleImageUpload(this.files)">
+      </div>
+      <div id="imgPreviewList" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"></div>
+    </div>
+    <div class="form-group">
+      <label>运营目标</label>
+      <div id="goalSelector" style="display:flex;gap:10px;">
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:14px 16px;border:2px solid var(--red);border-radius:10px;cursor:pointer;background:var(--red-light);font-size:14px;font-weight:500;transition:all 0.2s;" onclick="selectGoal('leads')">
+          <input type="radio" name="goal" value="leads" checked style="accent-color:var(--red);width:16px;height:16px;">
+          <div>
+            <div style="font-weight:600;color:var(--red);">引流咨询</div>
+            <div style="font-size:12px;color:var(--text-light);margin-top:2px;">引导用户私信 → 加微信 → 微信成交</div>
+          </div>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:14px 16px;border:2px solid var(--border);border-radius:10px;cursor:pointer;background:white;font-size:14px;font-weight:500;transition:all 0.2s;" onclick="selectGoal('sales')">
+          <input type="radio" name="goal" value="sales" style="accent-color:var(--red);width:16px;height:16px;">
+          <div>
+            <div style="font-weight:600;color:var(--text);">直接卖货</div>
+            <div style="font-size:12px;color:var(--text-light);margin-top:2px;">帖子挂链接 → 用户点击 → 直接下单</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-row-3">
+      <div class="form-group">
+        <label>内容风格</label>
+        <select id="contentStyle">
+          <option value="personal">真实体验分享</option>
+          <option value="evaluation">专业测评</option>
+          <option value="tutorial">教程干货</option>
+          <option value="story">故事种草</option>
+          <option value="comparison">对比横评</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>图片数量</label>
+        <select id="imageCount">
+          <option value="4">4 张</option>
+          <option value="6" selected>6 张</option>
+          <option value="9">9 张</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>图片风格</label>
+        <select id="imageStyle">
+          <option value="photo">真实摄影风</option>
+          <option value="flat">扁平插画风</option>
+          <option value="3d">3D 渲染风</option>
+          <option value="watercolor">水彩手绘风</option>
+          <option value="minimal">极简杂志风</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示词模板 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">3</span> 提示词模板</div>
+    <div class="template-toggle" onclick="toggleTemplate()">
+      <span class="arrow">&#9654;</span> 点击展开/编辑内置提示词模板（高级用户）
+    </div>
+    <div class="template-area" id="templateArea">
+      <div class="form-group">
+        <textarea id="systemPrompt" rows="18"></textarea>
+        <p class="tip">这是生成帖子的核心提示词，修改后将影响输出质量。</p>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="resetPrompt()">恢复默认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 生成按钮 -->
+  <button class="btn btn-primary" id="generateBtn" onclick="generate()">
+    生成投流帖子（文案 + 图片提示词）
+  </button>
+
+    </div><!-- end left-col -->
+
+    <!-- 右栏：AI 思考与生成过程 -->
+    <div class="right-col">
+      <div class="ai-log-panel">
+        <div class="ai-log-header">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="title">AI 思考与生成过程</span>
+        </div>
+        <div class="ai-log-body" id="aiLogBody">
+          <div class="ai-log-empty">点击「生成投流帖子」后，这里将实时显示 AI 的生成过程...</div>
+        </div>
+      </div>
+    </div><!-- end right-col -->
+
+  </div><!-- end main-layout -->
+
+  <!-- 输出区域 -->
+  <div class="output-section" id="outputSection">
+
+    <!-- 标题 + 正文 -->
+    <div class="card" style="margin-top:20px;">
+      <div class="card-title"><span class="icon">&#9733;</span> 文案内容</div>
+
+      <div class="output-block" id="titleBlock">
+        <button class="copy-btn" onclick="copyText('titleContent')">复制</button>
+        <div class="output-label">标题方案</div>
+        <div class="output-content" id="titleContent"></div>
+      </div>
+
+      <div class="output-block" id="bodyBlock">
+        <button class="copy-btn" onclick="copyText('bodyContent')">复制</button>
+        <div class="output-label">正文</div>
+        <div class="output-content" id="bodyContent"></div>
+      </div>
+
+      <button class="btn btn-outline btn-sm" onclick="copyAll()">一键复制全部文案</button>
+    </div>
+
+    <!-- 图片区域 -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">
+        <span class="icon" style="background: var(--blue-light); color: var(--blue);">&#9635;</span>
+        配图生成
+      </div>
+
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <button class="btn btn-green btn-sm" id="genAllImgBtn" onclick="generateAllImages()" style="width:auto; flex:1;">
+          一键生成全部图片
+        </button>
+      </div>
+
+      <div id="imageCards"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('active')"><img id="lightboxImg"></div>
+
+<script>
+const DEFAULT_PROMPT = `你是一位顶级小红书投流内容操盘手，精通平台算法机制、用户心理学和高转化广告文案创作。
+
+你的任务：根据用户提供的产品信息，创作一篇高点击率、高转化的小红书投流帖子，包括标题、正文和每张配图的AI图片生成提示词。
+
+## 创作原则
+
+### 标题规则（20字以内）
+- 使用数字开头或包含数字（如"3天""28岁""99%"）
+- 制造反差感或好奇心缺口
+- 精准戳中目标人群痛点
+- 使用适当的emoji增强视觉冲击
+- 禁止虚假承诺和绝对化用语
+- 提供3个标题备选方案
+
+### 正文规则
+- 开头3行必须制造"停留钩子"，打断用户滑动
+- 采用短段落、多换行，一段不超过3行
+- 融入真实感细节（时间、场景、感受）
+- 核心卖点自然融入而非硬广
+- 使用适当emoji分隔段落和标记重点
+- 结尾设置行动号召（CTA）
+- 文末加5-8个相关话题标签
+- 控制在300-600字
+- 语言自然、口语化，避免任何AI腔调和套话
+
+### 图片提示词规则
+- 使用英文编写，适用于 AI 图片生成模型
+- 第1张：封面图，必须高冲击力，吸引点击
+- 其余图片：产品展示、使用场景、效果对比、细节特写等
+- 每张图的提示词需包含：主体描述、场景环境、光线、色调、拍摄风格、构图说明
+- 适配小红书竖版 3:4 比例
+- 提示词末尾加上用户选择的图片风格要求
+
+## 输出格式（严格按此格式，不要加额外说明）
+
+---TITLE---
+标题方案1：xxx
+标题方案2：xxx
+标题方案3：xxx
+
+---BODY---
+（正文内容）
+
+---IMAGE_1---
+（第1张图片的英文提示词）
+
+---IMAGE_2---
+（第2张图片的英文提示词）
+
+（以此类推，根据指定图片数量生成对应数量的 IMAGE 块）`;
+
+document.getElementById('systemPrompt').value = DEFAULT_PROMPT;
+
+// Provider change handlers
+function onTextProviderChange() {
+  const p = document.getElementById('textProvider').value;
+  const urlGroup = document.getElementById('textBaseUrlGroup');
+  const modelInput = document.getElementById('textModel');
+  urlGroup.style.display = p === 'custom_openai' ? 'block' : 'none';
+  if (p === 'yunwu') modelInput.value = 'claude-opus-4-6';
+  else if (p === 'anthropic') modelInput.value = 'claude-opus-4-6';
+  else if (p === 'openrouter') modelInput.value = 'anthropic/claude-sonnet-4';
+  else modelInput.value = '';
+}
+
+function onImageProviderChange() {
+  const p = document.getElementById('imageProvider').value;
+  const urlGroup = document.getElementById('imgBaseUrlGroup');
+  const modelInput = document.getElementById('imageModel');
+  urlGroup.style.display = p === 'custom_img' ? 'block' : 'none';
+  if (p === 'yunwu_img') modelInput.value = 'gemini-3.1-flash-image-preview';
+  else if (p === 'google') modelInput.value = 'gemini-2.0-flash-preview-image-generation';
+  else if (p === 'openrouter_img') modelInput.value = 'google/gemini-3.1-flash-image-preview';
+  else modelInput.value = '';
+}
+
+// Restore saved config
+try {
+  const s = JSON.parse(localStorage.getItem('xhs_gen_v3') || '{}');
+  if (s.anthropicKey) document.getElementById('anthropicKey').value = s.anthropicKey;
+  if (s.googleKey) document.getElementById('googleKey').value = s.googleKey;
+  if (s.textModel) document.getElementById('textModel').value = s.textModel;
+  if (s.imageModel) document.getElementById('imageModel').value = s.imageModel;
+  if (s.textProvider) { document.getElementById('textProvider').value = s.textProvider; onTextProviderChange(); }
+  if (s.imageProvider) { document.getElementById('imageProvider').value = s.imageProvider; onImageProviderChange(); }
+  if (s.textBaseUrl) document.getElementById('textBaseUrl').value = s.textBaseUrl;
+  if (s.imgBaseUrl) document.getElementById('imgBaseUrl').value = s.imgBaseUrl;
+  if (s.prompt) document.getElementById('systemPrompt').value = s.prompt;
+  // Re-apply model values after provider change
+  if (s.textModel) document.getElementById('textModel').value = s.textModel;
+  if (s.imageModel) document.getElementById('imageModel').value = s.imageModel;
+} catch(e) {}
+
+// URL hash auto-fill: #key=xxx will auto-fill both API keys and save to localStorage
+// The hash is NOT sent to servers, so it's safer than query params
+try {
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    const params = new URLSearchParams(hash);
+    if (params.get('key')) {
+      const k = params.get('key');
+      const imgKey = params.get('imgkey') || k;
+      document.getElementById('anthropicKey').value = k;
+      document.getElementById('googleKey').value = imgKey;
+      // Auto-select provider (default to yunwu for text, openrouter for image)
+      const tp = params.get('tp') || 'yunwu';
+      const ip = params.get('ip') || 'yunwu_img';
+      document.getElementById('textProvider').value = tp;
+      document.getElementById('imageProvider').value = ip;
+      onTextProviderChange();
+      onImageProviderChange();
+      // Restore model values after provider change
+      document.getElementById('textModel').value = params.get('tm') || 'claude-opus-4-6';
+      document.getElementById('imageModel').value = params.get('im') || 'gemini-3.1-flash-image-preview';
+      // Save and clear hash from URL bar for safety
+      saveConfig();
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }
+} catch(e) {}
+
+function saveConfig() {
+  try {
+    localStorage.setItem('xhs_gen_v3', JSON.stringify({
+      anthropicKey: document.getElementById('anthropicKey').value,
+      googleKey: document.getElementById('googleKey').value,
+      textModel: document.getElementById('textModel').value,
+      imageModel: document.getElementById('imageModel').value,
+      textProvider: document.getElementById('textProvider').value,
+      imageProvider: document.getElementById('imageProvider').value,
+      textBaseUrl: document.getElementById('textBaseUrl').value,
+      imgBaseUrl: document.getElementById('imgBaseUrl').value,
+      prompt: document.getElementById('systemPrompt').value
+    }));
+  } catch(e) {}
+}
+
+// ===== Product Save/Load/Delete =====
+function getProducts() {
+  try { return JSON.parse(localStorage.getItem('xhs_products') || '[]'); } catch(e) { return []; }
+}
+function setProducts(list) {
+  localStorage.setItem('xhs_products', JSON.stringify(list));
+}
+function refreshProductSelect(selectName) {
+  const sel = document.getElementById('savedProducts');
+  const products = getProducts();
+  sel.innerHTML = '<option value="">-- 新建产品 --</option>';
+  products.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = p.name || ('产品 ' + (i + 1));
+    sel.appendChild(opt);
+  });
+  if (selectName !== undefined) {
+    const idx = products.findIndex(p => p.name === selectName);
+    if (idx >= 0) sel.value = idx;
+  }
+}
+function saveProduct() {
+  const name = document.getElementById('productName').value.trim();
+  if (!name) { showToast('请先填写产品名称'); return; }
+  const product = {
+    name,
+    type: document.getElementById('productType').value,
+    audience: document.getElementById('targetAudience').value,
+    desc: document.getElementById('productDesc').value,
+    style: document.getElementById('contentStyle').value,
+    imgCount: document.getElementById('imageCount').value,
+    imgStyle: document.getElementById('imageStyle').value,
+    goal: getGoal(),
+    images: uploadedImages.map(img => ({ base64: img.base64, mimeType: img.mimeType, name: img.name }))
+  };
+  const products = getProducts();
+  const existIdx = products.findIndex(p => p.name === name);
+  if (existIdx >= 0) {
+    products[existIdx] = product;
+  } else {
+    products.push(product);
+  }
+  try {
+    setProducts(products);
+    refreshProductSelect(name);
+    showToast('产品已保存：' + name + (product.images.length ? ` (含 ${product.images.length} 张图片)` : ''));
+  } catch(e) {
+    // localStorage may be full with large images, try saving without images
+    product.images = [];
+    if (existIdx >= 0) products[existIdx] = product;
+    else products[products.length - 1] = product;
+    setProducts(products);
+    refreshProductSelect(name);
+    showToast('产品已保存（图片过大，未保存图片）');
+  }
+}
+function loadProduct() {
+  const sel = document.getElementById('savedProducts');
+  if (sel.value === '') {
+    document.getElementById('productName').value = '';
+    document.getElementById('productType').value = '';
+    document.getElementById('targetAudience').value = '';
+    document.getElementById('productDesc').value = '';
+    uploadedImages = [];
+    renderImagePreviews();
+    return;
+  }
+  const products = getProducts();
+  const p = products[parseInt(sel.value)];
+  if (!p) return;
+  document.getElementById('productName').value = p.name || '';
+  document.getElementById('productType').value = p.type || '';
+  document.getElementById('targetAudience').value = p.audience || '';
+  document.getElementById('productDesc').value = p.desc || '';
+  if (p.style) document.getElementById('contentStyle').value = p.style;
+  if (p.imgCount) document.getElementById('imageCount').value = p.imgCount;
+  if (p.imgStyle) document.getElementById('imageStyle').value = p.imgStyle;
+  if (p.goal) selectGoal(p.goal);
+  // Restore images
+  uploadedImages = (p.images || []).map(img => ({ base64: img.base64, mimeType: img.mimeType, name: img.name }));
+  renderImagePreviews();
+}
+function deleteProduct() {
+  const sel = document.getElementById('savedProducts');
+  if (sel.value === '') { showToast('请先选择要删除的产品'); return; }
+  const products = getProducts();
+  const idx = parseInt(sel.value);
+  const name = products[idx]?.name || '';
+  if (!confirm('确定删除产品「' + name + '」？')) return;
+  products.splice(idx, 1);
+  setProducts(products);
+  refreshProductSelect();
+  document.getElementById('productName').value = '';
+  document.getElementById('productType').value = '';
+  document.getElementById('targetAudience').value = '';
+  document.getElementById('productDesc').value = '';
+  uploadedImages = [];
+  renderImagePreviews();
+  showToast('已删除：' + name);
+}
+refreshProductSelect();
+
+// ===== Product Image Upload =====
+let uploadedImages = []; // [{base64, mimeType, name}]
+
+function handleImageUpload(files) {
+  const remaining = 3 - uploadedImages.length;
+  const toProcess = Array.from(files).slice(0, remaining);
+  toProcess.forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const [header, b64] = dataUrl.split(',');
+      const mime = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+      uploadedImages.push({ base64: b64, mimeType: mime, name: file.name });
+      renderImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function handleImageDrop(e) {
+  const files = e.dataTransfer.files;
+  handleImageUpload(files);
+}
+function removeUploadedImage(idx) {
+  uploadedImages.splice(idx, 1);
+  renderImagePreviews();
+}
+function renderImagePreviews() {
+  const list = document.getElementById('imgPreviewList');
+  list.innerHTML = '';
+  uploadedImages.forEach((img, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border);';
+    div.innerHTML = `<img src="data:${img.mimeType};base64,${img.base64}" style="width:100%;height:100%;object-fit:cover;"><div onclick="removeUploadedImage(${i})" style="position:absolute;top:2px;right:2px;width:20px;height:20px;background:rgba(0,0,0,0.6);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;line-height:1;">&times;</div>`;
+    list.appendChild(div);
+  });
+  const area = document.getElementById('imgUploadArea');
+  area.style.display = uploadedImages.length >= 3 ? 'none' : 'block';
+}
+
+function toggleTemplate() {
+  document.querySelector('.template-toggle').classList.toggle('open');
+  document.getElementById('templateArea').classList.toggle('visible');
+}
+
+// ===== Goal Selector =====
+function selectGoal(goal) {
+  document.querySelector(`input[name="goal"][value="${goal}"]`).checked = true;
+  const labels = document.querySelectorAll('#goalSelector > label');
+  labels.forEach(l => {
+    const radio = l.querySelector('input[type="radio"]');
+    if (radio.value === goal) {
+      l.style.borderColor = 'var(--red)';
+      l.style.background = 'var(--red-light)';
+      l.querySelector('div > div:first-child').style.color = 'var(--red)';
+    } else {
+      l.style.borderColor = 'var(--border)';
+      l.style.background = 'white';
+      l.querySelector('div > div:first-child').style.color = 'var(--text)';
+    }
+  });
+}
+function getGoal() {
+  const checked = document.querySelector('input[name="goal"]:checked');
+  return checked ? checked.value : 'leads';
+}
+function resetPrompt() {
+  document.getElementById('systemPrompt').value = DEFAULT_PROMPT;
+  showToast('已恢复默认提示词');
+}
+
+// ===== AI Log Panel =====
+function getLogTime() {
+  const d = new Date();
+  return d.toLocaleTimeString('zh-CN', { hour12: false });
+}
+function addLog(label, labelClass, content) {
+  const body = document.getElementById('aiLogBody');
+  if (body.querySelector('.ai-log-empty')) body.innerHTML = '';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const escapedContent = content ? content.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+  entry.innerHTML = `<span class="log-time">[${getLogTime()}]</span> <span class="log-label ${labelClass}">${label}</span>` + (content ? `<div class="log-content">${escapedContent}</div>` : '');
+  body.appendChild(entry);
+  body.scrollTop = body.scrollHeight;
+  return entry;
+}
+function addMessageLog(role, content) {
+  const body = document.getElementById('aiLogBody');
+  if (body.querySelector('.ai-log-empty')) body.innerHTML = '';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const roleColors = { 'SYSTEM': '#f59e0b', 'USER': '#60a5fa', 'ASSISTANT': '#34d399' };
+  const color = roleColors[role] || '#c8c8e0';
+  const escaped = content.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  entry.innerHTML = `<div style="margin-bottom:4px;"><span class="log-time">[${getLogTime()}]</span> <span style="color:${color};font-weight:700;">${role}</span></div><div class="log-stream" style="font-size:12px;color:#b0b0d0;">${escaped}</div>`;
+  body.appendChild(entry);
+  body.scrollTop = body.scrollHeight;
+}
+function addStreamLog(label, labelClass) {
+  const body = document.getElementById('aiLogBody');
+  if (body.querySelector('.ai-log-empty')) body.innerHTML = '';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">[${getLogTime()}]</span> <span class="log-label ${labelClass}">${label}</span><div class="log-stream" id="streamOutput"></div>`;
+  body.appendChild(entry);
+  body.scrollTop = body.scrollHeight;
+  return document.getElementById('streamOutput');
+}
+function clearLog() {
+  document.getElementById('aiLogBody').innerHTML = '<div class="ai-log-empty">点击「生成投流帖子」后，这里将实时显示 AI 的生成过程...</div>';
+}
+
+// ===== Web Search for Product Research =====
+async function searchProductInsights(productName, productType, targetAudience) {
+  const key = document.getElementById('anthropicKey').value.trim();
+  const provider = document.getElementById('textProvider').value;
+
+  let url = 'https://yunwu.ai/v1/chat/completions';
+  if (provider === 'openrouter') url = 'https://openrouter.ai/api/v1/chat/completions';
+  else if (provider === 'custom_openai') {
+    url = document.getElementById('textBaseUrl').value.trim();
+  }
+
+  const searchQuery = `小红书 ${productName} ${productType} 投流 爆款帖子`;
+
+  addLog('全网搜索', 'thinking', `搜索关键词: "${searchQuery}"`);
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-search-preview',
+      messages: [
+        { role: 'system', content: '你是一位小红书营销研究专家。请搜索并分析该类产品在小红书上的投流推广策略。' },
+        { role: 'user', content: `请搜索"${searchQuery}"，分析以下内容并给出详细报告：
+
+1. **爆款标题模式**：该类产品在小红书上高赞帖子常用的标题套路和关键词
+2. **内容风格**：成功帖子的文案风格、语气、结构特点
+3. **配图策略**：高点击率帖子通常使用什么样的封面图和配图风格（拍摄角度、色调、构图、场景）
+4. **目标人群痛点**：${targetAudience || '目标用户'}最关心的问题和购买决策因素
+5. **热门话题标签**：相关的高流量话题标签
+
+请基于搜索到的真实数据给出分析，越具体越好。` }
+      ],
+      max_tokens: 2048,
+      temperature: 0.3,
+      stream: true
+    })
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    addLog('搜索失败', 'error', `(${resp.status}) ${errText.slice(0, 200)}`);
+    return null;
+  }
+
+  const streamEl = addStreamLog('搜索结果', 'generating');
+  let fullText = '';
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') continue;
+      try {
+        const evt = JSON.parse(jsonStr);
+        const delta = evt.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          streamEl.textContent = fullText;
+          document.getElementById('aiLogBody').scrollTop = document.getElementById('aiLogBody').scrollHeight;
+        }
+      } catch(e) {}
+    }
+  }
+
+  addLog('搜索完成', 'success', `获取 ${fullText.length} 字市场分析`);
+  return fullText;
+}
+
+// ===== Text Generation (Streaming) =====
+// Build multimodal user content (text + images)
+function buildUserContent(userMessage) {
+  if (uploadedImages.length === 0) return userMessage;
+  // OpenAI-compatible multimodal format
+  const parts = [];
+  uploadedImages.forEach((img, i) => {
+    parts.push({
+      type: 'image_url',
+      image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+    });
+  });
+  parts.push({ type: 'text', text: userMessage + '\n\n注意：我已上传了产品主图，请仔细观察图中产品的外观、颜色、包装、形态等细节，在生成图片提示词时，必须准确描述产品的真实外观，确保生成的图片中产品与主图一致。' });
+  return parts;
+}
+function buildAnthropicUserContent(userMessage) {
+  if (uploadedImages.length === 0) return userMessage;
+  const parts = [];
+  uploadedImages.forEach((img, i) => {
+    parts.push({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mimeType, data: img.base64 }
+    });
+  });
+  parts.push({ type: 'text', text: userMessage + '\n\n注意：我已上传了产品主图，请仔细观察图中产品的外观、颜色、包装、形态等细节，在生成图片提示词时，必须准确描述产品的真实外观，确保生成的图片中产品与主图一致。' });
+  return parts;
+}
+
+async function callClaude(systemPrompt, userMessage) {
+  const key = document.getElementById('anthropicKey').value.trim();
+  const model = document.getElementById('textModel').value.trim();
+  const provider = document.getElementById('textProvider').value;
+
+  addLog('发送请求', 'info', `模型: ${model || 'claude-opus-4-6'} | 服务商: ${provider}` + (uploadedImages.length ? ` | 附带 ${uploadedImages.length} 张产品图` : ''));
+
+  if (provider === 'anthropic') {
+    addLog('连接 Anthropic API...', 'thinking');
+    const userContent = buildAnthropicUserContent(userMessage);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: model || 'claude-opus-4-6',
+        max_tokens: 4096,
+        stream: true,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }]
+      })
+    });
+    if (!resp.ok) throw new Error(`Claude API (${resp.status}): ${await resp.text()}`);
+    addLog('开始生成...', 'generating');
+    const streamEl = addStreamLog('文案输出', 'generating');
+    let fullText = '';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(jsonStr);
+          if (evt.type === 'content_block_delta' && evt.delta?.text) {
+            fullText += evt.delta.text;
+            streamEl.textContent = fullText;
+            document.getElementById('aiLogBody').scrollTop = document.getElementById('aiLogBody').scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+    addLog('生成完成', 'success', `共 ${fullText.length} 字`);
+    return fullText;
+
+  } else {
+    // OpenRouter, yunwu, or Custom (OpenAI-compatible format with streaming)
+    let url = 'https://openrouter.ai/api/v1/chat/completions';
+    if (provider === 'yunwu') {
+      url = 'https://yunwu.ai/v1/chat/completions';
+    } else if (provider === 'custom_openai') {
+      url = document.getElementById('textBaseUrl').value.trim();
+      if (!url) throw new Error('请填写自定义 API 地址');
+    }
+    addLog('连接 API...', 'thinking');
+    const userContent = buildUserContent(userMessage);
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model || 'claude-opus-4-6',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ],
+        max_tokens: 4096,
+        temperature: 0.8,
+        stream: true
+      })
+    });
+    if (!resp.ok) throw new Error(`API (${resp.status}): ${await resp.text()}`);
+
+    addLog('开始生成...', 'generating');
+    const streamEl = addStreamLog('文案输出', 'generating');
+    let fullText = '';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(jsonStr);
+          const delta = evt.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            streamEl.textContent = fullText;
+            document.getElementById('aiLogBody').scrollTop = document.getElementById('aiLogBody').scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+    addLog('生成完成', 'success', `共 ${fullText.length} 字`);
+    return fullText;
+  }
+}
+
+// ===== Image Generation =====
+async function callGeminiImage(prompt) {
+  const key = document.getElementById('googleKey').value.trim();
+  const model = document.getElementById('imageModel').value.trim();
+  const provider = document.getElementById('imageProvider').value;
+
+  if (provider === 'google') {
+    // Direct Google Gemini API
+    const gModel = model || 'gemini-2.0-flash-preview-image-generation';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${gModel}:generateContent?key=${key}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `Generate an image based on this prompt. Do not include any text in the response, only generate the image.\n\nPrompt: ${prompt}` }]
+        }],
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+      })
+    });
+    if (!resp.ok) throw new Error(`Google API (${resp.status}): ${await resp.text()}`);
+    const data = await resp.json();
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      for (const part of data.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return { base64: part.inlineData.data, mimeType: part.inlineData.mimeType || 'image/png' };
+        }
+      }
+    }
+    throw new Error('API 未返回图片数据');
+
+  } else if (provider === 'yunwu_img') {
+    // 云雾AI uses chat completions format for Gemini image generation
+    const url = 'https://yunwu.ai/v1/chat/completions';
+    const imgModel = model || 'gemini-3.1-flash-image-preview';
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: imgModel,
+        messages: [{
+          role: 'user',
+          content: `Generate an image based on this prompt. Only generate the image, no text.\n\nPrompt: ${prompt}`
+        }],
+        max_tokens: 4096
+      })
+    });
+    if (!resp.ok) throw new Error(`Image API (${resp.status}): ${await resp.text()}`);
+    const data = await resp.json();
+
+    // Try to find base64 image in response
+    const msg = data.choices && data.choices[0] && data.choices[0].message;
+    if (msg) {
+      if (Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'image_url' && part.image_url) {
+            const dataUrl = part.image_url.url || part.image_url;
+            if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+              const [header, b64] = dataUrl.split(',');
+              const mime = header.match(/data:(.*?);/)?.[1] || 'image/png';
+              return { base64: b64, mimeType: mime };
+            }
+          }
+        }
+      }
+      if (typeof msg.content === 'string') {
+        const b64Match = msg.content.match(/data:(image\/\w+);base64,([A-Za-z0-9+/=]+)/);
+        if (b64Match) return { base64: b64Match[2], mimeType: b64Match[1] };
+        const urlMatch = msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)[^\s"'<>]*/i);
+        if (urlMatch) {
+          const imgResp = await fetch(urlMatch[0]);
+          const blob = await imgResp.blob();
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const [h, b] = reader.result.split(',');
+              resolve({ base64: b, mimeType: blob.type || 'image/png' });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    }
+    throw new Error('API 未返回图片数据');
+
+  } else {
+    // OpenRouter or Custom (OpenAI-compatible image via chat)
+    let url = 'https://openrouter.ai/api/v1/chat/completions';
+    if (provider === 'custom_img') {
+      url = document.getElementById('imgBaseUrl').value.trim();
+      if (!url) throw new Error('请填写自定义图片 API 地址');
+    }
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model || 'gemini-2.0-flash-preview-image-generation',
+        messages: [{
+          role: 'user',
+          content: `Generate an image based on this prompt. Only generate the image, no text.\n\nPrompt: ${prompt}`
+        }],
+        max_tokens: 4096
+      })
+    });
+    if (!resp.ok) throw new Error(`Image API (${resp.status}): ${await resp.text()}`);
+    const data = await resp.json();
+
+    // Try to find base64 image in response
+    const msg = data.choices && data.choices[0] && data.choices[0].message;
+    if (msg) {
+      // Check for content array format (OpenRouter multimodal response)
+      if (Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'image_url' && part.image_url) {
+            const dataUrl = part.image_url.url || part.image_url;
+            if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+              const [header, b64] = dataUrl.split(',');
+              const mime = header.match(/data:(.*?);/)?.[1] || 'image/png';
+              return { base64: b64, mimeType: mime };
+            }
+          }
+        }
+      }
+      // Check for string content with base64
+      if (typeof msg.content === 'string') {
+        const b64Match = msg.content.match(/data:(image\/\w+);base64,([A-Za-z0-9+/=]+)/);
+        if (b64Match) {
+          return { base64: b64Match[2], mimeType: b64Match[1] };
+        }
+        // If it returned a URL instead
+        const urlMatch = msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)[^\s"'<>]*/i);
+        if (urlMatch) {
+          // Fetch the image and convert to base64
+          const imgResp = await fetch(urlMatch[0]);
+          const blob = await imgResp.blob();
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const [h, b] = reader.result.split(',');
+              resolve({ base64: b, mimeType: blob.type || 'image/png' });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    }
+    throw new Error('API 未返回可识别的图片数据，请检查模型是否支持图片生成');
+  }
+}
+
+function buildUserMessage() {
+  const name = document.getElementById('productName').value.trim();
+  const type = document.getElementById('productType').value.trim();
+  const audience = document.getElementById('targetAudience').value.trim();
+  const desc = document.getElementById('productDesc').value.trim();
+  const style = document.getElementById('contentStyle');
+  const styleName = style.options[style.selectedIndex].text;
+  const imgCount = document.getElementById('imageCount').value;
+  const imgStyle = document.getElementById('imageStyle');
+  const imgStyleName = imgStyle.options[imgStyle.selectedIndex].text;
+  const goal = getGoal();
+  const goalName = goal === 'leads' ? '引流咨询（引导私信→加微信→微信成交）' : '直接卖货（帖子挂链接→用户点击→直接下单）';
+
+  let goalInstruction = '';
+  if (goal === 'leads') {
+    goalInstruction = `
+## 运营目标：引流咨询
+- 帖子的核心目标是引导用户主动私信咨询
+- 正文中要制造信息差和好奇心缺口，让用户想了解更多细节
+- 不要在帖子中暴露全部信息（如具体价格、购买方式），留悬念引导私信
+- 结尾CTA必须引导私信，如"想知道具体方案的姐妹评论区扣1""私信我发你详细资料""评论区留言帮你分析"
+- 可以用"限时""名额有限""前XX名"等紧迫感话术
+- 评论区引导话术也要准备（如置顶评论引导私信）`;
+  } else {
+    goalInstruction = `
+## 运营目标：直接卖货
+- 帖子的核心目标是促进用户直接点击商品链接下单购买
+- 正文中要充分展示产品价值、使用效果和性价比
+- 明确提及价格优势、优惠活动、赠品等促单信息
+- 结尾CTA要直接引导购买，如"点击下方链接直接拿""链接放购物车了，姐妹们冲""左下角链接直达"
+- 要消除购买顾虑（如退换货政策、正品保证等）
+- 突出限时优惠、库存紧张等紧迫感`;
+  }
+
+  return `## 产品信息
+- 产品名称：${name}
+- 产品类型：${type}
+- 目标人群：${audience}
+- 运营目标：${goalName}
+- 内容风格：${styleName}
+- 图片数量：${imgCount}张
+- 图片风格：${imgStyleName}
+${goalInstruction}
+
+## 核心卖点/产品描述
+${desc}
+
+请根据以上信息，严格按照指定输出格式生成。注意帖子的CTA和整体策略必须服务于运营目标「${goalName}」。`;
+}
+
+function parseOutput(text) {
+  const result = { titles: '', body: '', images: [] };
+  const titleMatch = text.match(/---TITLE---([\s\S]*?)(?=---BODY---|$)/);
+  if (titleMatch) result.titles = titleMatch[1].trim();
+  const bodyMatch = text.match(/---BODY---([\s\S]*?)(?=---IMAGE_\d+---|$)/);
+  if (bodyMatch) result.body = bodyMatch[1].trim();
+  const imgRegex = /---IMAGE_(\d+)---([\s\S]*?)(?=---IMAGE_\d+---|$)/g;
+  let m;
+  while ((m = imgRegex.exec(text)) !== null) {
+    result.images.push({ index: parseInt(m[1]), prompt: m[2].trim() });
+  }
+  if (!result.titles && !result.body && result.images.length === 0) {
+    result.body = text;
+  }
+  return result;
+}
+
+// Store parsed data globally
+let currentResult = null;
+
+async function generate() {
+  const aKey = document.getElementById('anthropicKey').value.trim();
+  if (!aKey) { showToast('请输入文案 API Key'); return; }
+  if (!document.getElementById('productName').value.trim()) { showToast('请输入产品名称'); return; }
+  if (!document.getElementById('productDesc').value.trim()) { showToast('请输入产品描述'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> AI 正在生成文案...';
+  saveConfig();
+
+  // Clear and init log
+  clearLog();
+  addLog('开始生成', 'info', `产品: ${document.getElementById('productName').value.trim()}` + (uploadedImages.length ? ` | 已上传 ${uploadedImages.length} 张产品图` : ''));
+
+  try {
+    // Step 1: Web search for product insights
+    addLog('第一步：市场调研', 'info', '正在搜索小红书上同类产品的爆款帖子策略...');
+    btn.innerHTML = '<span class="loading-spinner"></span> 正在搜索全网参考资料...';
+    const productName = document.getElementById('productName').value.trim();
+    const productType = document.getElementById('productType').value.trim();
+    const targetAudience = document.getElementById('targetAudience').value.trim();
+    let searchInsights = null;
+    try {
+      searchInsights = await searchProductInsights(productName, productType, targetAudience);
+    } catch(searchErr) {
+      addLog('搜索跳过', 'error', '搜索失败，将直接生成: ' + searchErr.message);
+    }
+
+    // Step 2: Generate post with search insights
+    addLog('第二步：生成帖子', 'info', '基于市场调研结果生成高转化帖子...');
+    btn.innerHTML = '<span class="loading-spinner"></span> AI 正在生成文案...';
+    const systemPrompt = document.getElementById('systemPrompt').value;
+    let userMessage = buildUserMessage();
+
+    // Append search insights to user message if available
+    if (searchInsights) {
+      userMessage += `\n\n## 市场调研参考（来自全网搜索）\n以下是该类产品在小红书上的爆款帖子分析，请参考这些真实案例的标题风格、文案结构、配图策略来生成内容，尤其是图片提示词要参考成功案例的拍摄风格和构图：\n\n${searchInsights}`;
+    }
+
+    // Show full conversation in log
+    addMessageLog('SYSTEM', systemPrompt);
+    if (uploadedImages.length > 0) {
+      addLog('产品图片', 'info', `已附带 ${uploadedImages.length} 张产品主图，AI 将参考产品外观生成提示词`);
+    }
+    addMessageLog('USER', userMessage + (uploadedImages.length ? '\n\n[+ 附带产品主图 ' + uploadedImages.length + ' 张]' : ''));
+    addLog('发送到 AI 模型', 'thinking', '等待响应...');
+    const response = await callClaude(systemPrompt, userMessage);
+
+    addLog('解析输出', 'thinking', '正在解析标题、正文和图片提示词...');
+    currentResult = parseOutput(response);
+    addLog('解析完成', 'success', `${currentResult.titles ? '标题 ✓' : ''} | 正文 ${currentResult.body?.length || 0} 字 | ${currentResult.images?.length || 0} 张图片提示词`);
+
+    // Render title & body
+    document.getElementById('titleContent').textContent = currentResult.titles;
+    document.getElementById('bodyContent').textContent = currentResult.body;
+
+    // Render image cards
+    renderImageCards(currentResult.images);
+
+    document.getElementById('outputSection').classList.add('visible');
+    document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    addLog('生成失败', 'error', err.message);
+    showToast('生成失败: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '生成投流帖子（文案 + 图片提示词）';
+  }
+}
+
+function renderImageCards(images) {
+  const container = document.getElementById('imageCards');
+  container.innerHTML = '';
+  images.forEach((img, idx) => {
+    const card = document.createElement('div');
+    card.className = 'img-card';
+    card.id = `imgCard_${img.index}`;
+    card.innerHTML = `
+      <div class="img-card-header">
+        <span class="img-card-label">第 ${img.index} 张图片</span>
+        <div class="img-card-actions">
+          <button class="btn btn-sm btn-outline" onclick="copyPrompt(${idx})">复制提示词</button>
+          <button class="btn btn-sm btn-blue" id="imgBtn_${img.index}" onclick="generateSingleImage(${idx})">生成图片</button>
+        </div>
+      </div>
+      <div class="img-card-body">
+        <div class="img-card-prompt" id="imgPrompt_${img.index}">${escapeHtml(img.prompt)}</div>
+      </div>
+      <div class="img-card-preview" id="imgPreview_${img.index}">
+        <div class="placeholder">点击「生成图片」按钮生成配图</div>
+      </div>
+      <div class="img-status" id="imgStatus_${img.index}"></div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function generateSingleImage(idx) {
+  const gKey = document.getElementById('googleKey').value.trim();
+  if (!gKey) { showToast('请输入图片 API Key'); return; }
+  if (!currentResult || !currentResult.images[idx]) return;
+
+  const img = currentResult.images[idx];
+  const btn = document.getElementById(`imgBtn_${img.index}`);
+  const preview = document.getElementById(`imgPreview_${img.index}`);
+  const status = document.getElementById(`imgStatus_${img.index}`);
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner-sm"></span> 生成中';
+  preview.innerHTML = '<div class="placeholder"><span class="loading-spinner-sm"></span> 正在生成图片...</div>';
+  status.textContent = '';
+  status.className = 'img-status';
+  addLog(`第 ${img.index} 张图片`, 'generating', '正在调用图片生成模型...');
+
+  try {
+    const result = await callGeminiImage(img.prompt);
+    const imgSrc = `data:${result.mimeType};base64,${result.base64}`;
+    preview.innerHTML = `<img src="${imgSrc}" alt="第${img.index}张配图" style="cursor:zoom-in;" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');">`;
+    status.textContent = '生成成功';
+    status.className = 'img-status success';
+    addLog(`第 ${img.index} 张图片`, 'success', '生成成功');
+
+    // Add download button
+    const actions = btn.parentElement;
+    if (!actions.querySelector('.dl-btn')) {
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'btn btn-sm btn-outline dl-btn';
+      dlBtn.textContent = '下载';
+      dlBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = imgSrc;
+        a.download = `xhs_img_${img.index}.png`;
+        a.click();
+      };
+      actions.appendChild(dlBtn);
+    }
+  } catch (err) {
+    preview.innerHTML = `<div class="placeholder" style="color:var(--red);">生成失败: ${escapeHtml(err.message)}</div>`;
+    status.textContent = '生成失败，请重试';
+    status.className = 'img-status error';
+    addLog(`第 ${img.index} 张图片`, 'error', err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '生成图片';
+  }
+}
+
+async function generateAllImages() {
+  const gKey = document.getElementById('googleKey').value.trim();
+  if (!gKey) { showToast('请输入图片 API Key'); return; }
+  if (!currentResult || currentResult.images.length === 0) { showToast('请先生成文案'); return; }
+
+  const btn = document.getElementById('genAllImgBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> 正在生成全部图片...';
+
+  // Generate one by one to avoid rate limits
+  for (let i = 0; i < currentResult.images.length; i++) {
+    await generateSingleImage(i);
+    // Small delay between requests
+    if (i < currentResult.images.length - 1) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '一键生成全部图片';
+  showToast('全部图片生成完成');
+}
+
+function copyPrompt(idx) {
+  if (!currentResult || !currentResult.images[idx]) return;
+  navigator.clipboard.writeText(currentResult.images[idx].prompt).then(() => showToast('提示词已复制'));
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function copyText(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => showToast('已复制'));
+}
+
+function copyAll() {
+  if (!currentResult) return;
+  const title = currentResult.titles;
+  const body = currentResult.body;
+  const imgs = currentResult.images.map(i => `[图片${i.index}提示词]\n${i.prompt}`).join('\n\n');
+  const all = `【标题方案】\n${title}\n\n【正文】\n${body}\n\n【图片提示词】\n${imgs}`;
+  navigator.clipboard.writeText(all).then(() => showToast('已复制全部文案'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
