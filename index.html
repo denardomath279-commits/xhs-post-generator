@@ -1012,7 +1012,7 @@ async function callClaude(systemPrompt, userMessage) {
       },
       body: JSON.stringify({
         model: model || 'claude-opus-4-6',
-        max_tokens: 4096,
+        max_tokens: 8192,
         stream: true,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
