@@ -469,14 +469,14 @@
     </div>
   </div>
 
-  <!-- 竞品分析 -->
+  <!-- 参考帖子分析 -->
   <div class="card">
-    <div class="card-title"><span class="icon" style="background:var(--blue-light);color:var(--blue);">&#9733;</span> 竞品帖子分析（可选）</div>
-    <p class="tip" style="margin-bottom:12px;">上传同类产品的小红书帖子截图，AI 会分析这些帖子的策略，帮助生成更有竞争力的内容。</p>
+    <div class="card-title"><span class="icon" style="background:var(--blue-light);color:var(--blue);">&#9733;</span> 参考帖子分析（可选）</div>
+    <p class="tip" style="margin-bottom:12px;">上传小红书优秀帖子截图作为参考，AI 会分析这些帖子的策略，帮助生成更优质的内容。</p>
 
     <div id="competitorUploadArea" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:#fafafa;" onclick="document.getElementById('competitorFiles').click();" ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleCompetitorDrop(event);">
-      <div style="color:var(--text-light);font-size:14px;">点击上传或拖拽竞品帖子截图</div>
-      <div style="color:#bbb;font-size:12px;margin-top:4px;">支持 JPG/PNG，最多 20 张 | 也可以选择整个文件夹</div>
+      <div style="color:var(--text-light);font-size:14px;">点击上传或拖拽参考帖子截图</div>
+      <div style="color:#bbb;font-size:12px;margin-top:4px;">支持 JPG/PNG，最多 50 张 | 也可以选择整个文件夹</div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
         <input type="file" id="competitorFiles" accept="image/*" multiple style="display:none;" onchange="handleCompetitorUpload(this.files)">
         <button class="btn btn-sm btn-outline" style="font-size:12px;" onclick="event.stopPropagation();document.getElementById('competitorFolder').click();">选择文件夹</button>
@@ -493,7 +493,7 @@
       <div class="analyze-prompt-area" id="analyzePromptArea">
         <div class="form-group">
           <textarea id="analyzePrompt" rows="12"></textarea>
-          <p class="tip">这是分析竞品截图的提示词，修改后将影响策略报告质量。</p>
+          <p class="tip">这是分析参考帖子截图的提示词，修改后将影响策略报告质量。</p>
           <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="resetAnalyzePrompt()">恢复默认</button>
         </div>
       </div>
@@ -501,7 +501,7 @@
 
     <div style="display:flex;gap:10px;margin-top:14px;">
       <button class="btn btn-sm btn-blue" id="analyzeBtn" onclick="analyzeCompetitors()" style="flex:1;padding:12px;">
-        分析竞品截图
+        分析参考截图
       </button>
       <button class="btn btn-sm btn-outline" id="clearReportBtn" onclick="clearCompetitorReport()" style="display:none;">清除报告</button>
     </div>
@@ -883,7 +883,7 @@ const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。请仔
 document.getElementById('analyzePrompt').value = DEFAULT_ANALYZE_PROMPT;
 
 function handleCompetitorUpload(files) {
-  const remaining = 20 - competitorImages.length;
+  const remaining = 50 - competitorImages.length;
   const toProcess = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining);
   let loaded = 0;
   toProcess.forEach(file => {
@@ -916,7 +916,7 @@ function renderCompetitorPreviews() {
     div.innerHTML = `<img src="data:${img.mimeType};base64,${img.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');"><div class="del" onclick="event.stopPropagation();removeCompetitorImage(${i})">&times;</div>`;
     grid.appendChild(div);
   });
-  document.getElementById('competitorUploadArea').style.display = competitorImages.length >= 20 ? 'none' : 'block';
+  document.getElementById('competitorUploadArea').style.display = competitorImages.length >= 50 ? 'none' : 'block';
 }
 function toggleAnalyzePrompt() {
   const area = document.getElementById('analyzePromptArea');
@@ -937,15 +937,15 @@ function clearCompetitorReport() {
 }
 
 async function analyzeCompetitors() {
-  if (competitorImages.length === 0) { showToast('请先上传竞品帖子截图'); return; }
+  if (competitorImages.length === 0) { showToast('请先上传参考帖子截图'); return; }
   const key = document.getElementById('anthropicKey').value.trim();
   if (!key) { showToast('请先填写文案 API Key'); return; }
 
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true;
-  btn.innerHTML = '<span class="loading-spinner-sm"></span> 正在分析竞品...';
+  btn.innerHTML = '<span class="loading-spinner-sm"></span> 正在分析参考帖子...';
   clearLog();
-  addLog('竞品分析', 'info', `开始分析 ${competitorImages.length} 张竞品截图...`);
+  addLog('参考帖子分析', 'info', `开始分析 ${competitorImages.length} 张参考截图...`);
 
   const analyzePrompt = document.getElementById('analyzePrompt').value.trim() || DEFAULT_ANALYZE_PROMPT;
   const provider = document.getElementById('textProvider').value;
@@ -967,7 +967,7 @@ async function analyzeCompetitors() {
       parts.push({ type: 'text', text: analyzePrompt });
     }
 
-    addMessageLog('USER', `[${competitorImages.length} 张竞品截图] + 分析提示词`);
+    addMessageLog('USER', `[${competitorImages.length} 张参考截图] + 分析提示词`);
     addLog('发送到 AI', 'thinking', `模型: ${model} | 截图: ${competitorImages.length} 张`);
 
     let fullText = '';
@@ -1066,14 +1066,14 @@ async function analyzeCompetitors() {
     document.getElementById('competitorReportContent').textContent = fullText;
     document.getElementById('competitorReportArea').style.display = 'block';
     document.getElementById('clearReportBtn').style.display = 'inline-flex';
-    showToast('竞品分析完成！生成帖子时将自动参考此报告');
+    showToast('参考帖子分析完成！生成帖子时将自动参考此报告');
   } catch(err) {
     addLog('分析失败', 'error', err.message);
-    showToast('竞品分析失败: ' + err.message);
+    showToast('参考帖子分析失败: ' + err.message);
     console.error(err);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '分析竞品截图';
+    btn.innerHTML = '分析参考截图';
   }
 }
 
@@ -1668,8 +1668,8 @@ async function generate() {
 
     // Append competitor analysis report if available
     if (competitorReport) {
-      userMessage += `\n\n## 竞品帖子分析报告\n以下是对竞品小红书帖子截图的详细分析报告，请参考这些真实案例的设计策略、标题套路、配图风格来生成更有竞争力的内容：\n\n${competitorReport}`;
-      addLog('参考竞品报告', 'info', `附加竞品分析报告 ${competitorReport.length} 字`);
+      userMessage += `\n\n## 参考帖子分析报告\n以下是对小红书优秀帖子截图的详细分析报告，请参考这些案例的设计策略、标题套路、配图风格来生成更优质的内容：\n\n${competitorReport}`;
+      addLog('参考分析报告', 'info', `附加参考帖子分析报告 ${competitorReport.length} 字`);
     }
 
     // Show full conversation in log
