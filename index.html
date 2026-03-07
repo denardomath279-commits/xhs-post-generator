@@ -257,19 +257,40 @@
   @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
   .ai-log-empty { color: #555570; text-align: center; padding: 40px 20px; font-size: 14px; }
 
-  /* Competitor Analysis */
+  /* Reference Post Analysis */
   .competitor-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; margin-top: 10px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; margin-top: 8px;
   }
   .competitor-thumb {
-    position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); cursor: pointer;
+    position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); cursor: pointer;
   }
   .competitor-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .competitor-thumb .del {
-    position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: rgba(0,0,0,0.6);
+    position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; background: rgba(0,0,0,0.6);
     color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 14px; cursor: pointer; line-height: 1;
+    font-size: 12px; cursor: pointer; line-height: 1;
   }
+  .post-group {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px;
+    background: #fafbfc; transition: border-color 0.2s;
+  }
+  .post-group:hover { border-color: var(--blue); }
+  .post-group-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .post-group-header input {
+    flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+  }
+  .post-group-header .del-group {
+    background: none; border: 1px solid #eee; border-radius: 6px; padding: 4px 10px;
+    font-size: 12px; cursor: pointer; color: var(--text-light); white-space: nowrap;
+  }
+  .post-group-header .del-group:hover { color: var(--red); border-color: var(--red); }
+  .post-group-upload {
+    border: 1.5px dashed var(--border); border-radius: 8px; padding: 12px; text-align: center;
+    cursor: pointer; font-size: 12px; color: var(--text-light); transition: border-color 0.2s;
+  }
+  .post-group-upload:hover { border-color: var(--blue); color: var(--blue); }
   .competitor-report {
     background: #f8fafb; border: 1px solid var(--border); border-radius: 8px; padding: 14px;
     margin-top: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; word-break: break-word;
@@ -472,19 +493,13 @@
   <!-- 参考帖子分析 -->
   <div class="card">
     <div class="card-title"><span class="icon" style="background:var(--blue-light);color:var(--blue);">&#9733;</span> 参考帖子分析（可选）</div>
-    <p class="tip" style="margin-bottom:12px;">上传小红书优秀帖子截图作为参考，AI 会分析这些帖子的策略，帮助生成更优质的内容。</p>
+    <p class="tip" style="margin-bottom:12px;">上传小红书优秀帖子截图作为参考，按帖子分组上传，AI 能更好地理解每个帖子的完整内容。</p>
 
-    <div id="competitorUploadArea" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:#fafafa;" onclick="document.getElementById('competitorFiles').click();" ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleCompetitorDrop(event);">
-      <div style="color:var(--text-light);font-size:14px;">点击上传或拖拽参考帖子截图</div>
-      <div style="color:#bbb;font-size:12px;margin-top:4px;">支持 JPG/PNG，最多 50 张 | 也可以选择整个文件夹</div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
-        <input type="file" id="competitorFiles" accept="image/*" multiple style="display:none;" onchange="handleCompetitorUpload(this.files)">
-        <button class="btn btn-sm btn-outline" style="font-size:12px;" onclick="event.stopPropagation();document.getElementById('competitorFolder').click();">选择文件夹</button>
-        <input type="file" id="competitorFolder" webkitdirectory style="display:none;" onchange="handleCompetitorUpload(this.files)">
-      </div>
-    </div>
+    <div id="postGroupsContainer"></div>
 
-    <div class="competitor-grid" id="competitorPreviewGrid"></div>
+    <button class="btn btn-sm btn-outline" onclick="addPostGroup()" style="width:100%;margin-top:8px;padding:10px;border-style:dashed;">
+      + 添加一组参考帖子
+    </button>
 
     <div style="margin-top:12px;">
       <div class="template-toggle" onclick="toggleAnalyzePrompt()">
@@ -864,11 +879,11 @@ function handleImageDrop(e) {
   handleImageUpload(files);
 }
 
-// ===== Competitor Screenshot Analysis =====
-let competitorImages = []; // [{base64, mimeType, name}]
+// ===== Reference Post Analysis (Grouped) =====
+let postGroups = []; // [{name: '帖子1', images: [{base64, mimeType, name}]}]
 let competitorReport = ''; // strategy report text
 
-const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。请仔细观察这些小红书帖子截图，分析以下内容：
+const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。我将按帖子分组发送截图，每组图片属于同一个帖子。请逐个帖子分析以下内容：
 
 1. **封面设计**：封面图的构图、色调、文字排版、视觉风格
 2. **标题套路**：标题的写法模式、关键词使用、情绪引导技巧
@@ -878,13 +893,30 @@ const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。请仔
 6. **CTA设计**：行动号召的方式和位置
 7. **话题标签**：使用的话题标签策略
 
-最后请给出一份综合策略建议，说明如何借鉴这些帖子的优点来创作新帖子。`;
+最后请给出一份综合策略建议，对比各帖子的优缺点，说明如何借鉴这些帖子的优点来创作新帖子。`;
 
 document.getElementById('analyzePrompt').value = DEFAULT_ANALYZE_PROMPT;
 
-function handleCompetitorUpload(files) {
-  const remaining = 50 - competitorImages.length;
+function getTotalImages() {
+  return postGroups.reduce((sum, g) => sum + g.images.length, 0);
+}
+
+function addPostGroup(name) {
+  const idx = postGroups.length;
+  postGroups.push({ name: name || `参考帖子 ${idx + 1}`, images: [] });
+  renderPostGroups();
+}
+
+function removePostGroup(idx) {
+  postGroups.splice(idx, 1);
+  renderPostGroups();
+}
+
+function handleGroupImageUpload(groupIdx, files) {
+  const totalNow = getTotalImages();
+  const remaining = 50 - totalNow;
   const toProcess = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining);
+  if (toProcess.length === 0) { if (files.length > 0) showToast(remaining <= 0 ? '已达到 50 张上限' : '未找到图片文件'); return; }
   let loaded = 0;
   toProcess.forEach(file => {
     const reader = new FileReader();
@@ -892,32 +924,49 @@ function handleCompetitorUpload(files) {
       const dataUrl = reader.result;
       const [header, b64] = dataUrl.split(',');
       const mime = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      competitorImages.push({ base64: b64, mimeType: mime, name: file.name });
+      postGroups[groupIdx].images.push({ base64: b64, mimeType: mime, name: file.name });
       loaded++;
-      if (loaded === toProcess.length) renderCompetitorPreviews();
+      if (loaded === toProcess.length) renderPostGroups();
     };
     reader.readAsDataURL(file);
   });
-  if (toProcess.length === 0 && files.length > 0) showToast('未找到图片文件');
 }
-function handleCompetitorDrop(e) {
-  handleCompetitorUpload(e.dataTransfer.files);
+
+function removeGroupImage(groupIdx, imgIdx) {
+  postGroups[groupIdx].images.splice(imgIdx, 1);
+  renderPostGroups();
 }
-function removeCompetitorImage(idx) {
-  competitorImages.splice(idx, 1);
-  renderCompetitorPreviews();
+
+function updateGroupName(groupIdx, name) {
+  postGroups[groupIdx].name = name;
 }
-function renderCompetitorPreviews() {
-  const grid = document.getElementById('competitorPreviewGrid');
-  grid.innerHTML = '';
-  competitorImages.forEach((img, i) => {
+
+function renderPostGroups() {
+  const container = document.getElementById('postGroupsContainer');
+  container.innerHTML = '';
+  postGroups.forEach((group, gi) => {
     const div = document.createElement('div');
-    div.className = 'competitor-thumb';
-    div.innerHTML = `<img src="data:${img.mimeType};base64,${img.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');"><div class="del" onclick="event.stopPropagation();removeCompetitorImage(${i})">&times;</div>`;
-    grid.appendChild(div);
+    div.className = 'post-group';
+    let thumbsHtml = '';
+    group.images.forEach((img, ii) => {
+      thumbsHtml += `<div class="competitor-thumb"><img src="data:${img.mimeType};base64,${img.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');"><div class="del" onclick="event.stopPropagation();removeGroupImage(${gi},${ii})">&times;</div></div>`;
+    });
+    div.innerHTML = `
+      <div class="post-group-header">
+        <span style="font-size:13px;font-weight:600;color:var(--blue);white-space:nowrap;">第 ${gi+1} 组</span>
+        <input type="text" value="${escapeHtml(group.name)}" onchange="updateGroupName(${gi},this.value)" placeholder="帖子名称/备注">
+        <button class="del-group" onclick="removePostGroup(${gi})">删除</button>
+      </div>
+      ${thumbsHtml ? `<div class="competitor-grid">${thumbsHtml}</div>` : ''}
+      <div class="post-group-upload" onclick="this.querySelector('input').click();" ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleGroupImageUpload(${gi},event.dataTransfer.files);">
+        + 添加截图到这组（${group.images.length} 张）
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="handleGroupImageUpload(${gi},this.files)">
+      </div>
+    `;
+    container.appendChild(div);
   });
-  document.getElementById('competitorUploadArea').style.display = competitorImages.length >= 50 ? 'none' : 'block';
 }
+
 function toggleAnalyzePrompt() {
   const area = document.getElementById('analyzePromptArea');
   const arrow = document.getElementById('analyzePromptArrow');
@@ -937,7 +986,8 @@ function clearCompetitorReport() {
 }
 
 async function analyzeCompetitors() {
-  if (competitorImages.length === 0) { showToast('请先上传参考帖子截图'); return; }
+  const totalImages = getTotalImages();
+  if (totalImages === 0) { showToast('请先上传参考帖子截图'); return; }
   const key = document.getElementById('anthropicKey').value.trim();
   if (!key) { showToast('请先填写文案 API Key'); return; }
 
@@ -945,30 +995,36 @@ async function analyzeCompetitors() {
   btn.disabled = true;
   btn.innerHTML = '<span class="loading-spinner-sm"></span> 正在分析参考帖子...';
   clearLog();
-  addLog('参考帖子分析', 'info', `开始分析 ${competitorImages.length} 张参考截图...`);
+  addLog('参考帖子分析', 'info', `开始分析 ${postGroups.length} 组共 ${totalImages} 张参考截图...`);
 
   const analyzePrompt = document.getElementById('analyzePrompt').value.trim() || DEFAULT_ANALYZE_PROMPT;
   const provider = document.getElementById('textProvider').value;
   const model = document.getElementById('textModel').value.trim();
 
   try {
-    // Build multimodal content with all competitor images
+    // Build multimodal content with images grouped by post
     const parts = [];
-    competitorImages.forEach((img, i) => {
+    postGroups.forEach((group, gi) => {
+      if (group.images.length === 0) return;
+      // Add text label before each group
+      const label = `\n--- 【${group.name || '参考帖子 ' + (gi+1)}】以下 ${group.images.length} 张图属于同一个帖子 ---\n`;
       if (provider === 'anthropic') {
-        parts.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
+        parts.push({ type: 'text', text: label });
+        group.images.forEach(img => {
+          parts.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
+        });
       } else {
-        parts.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
+        parts.push({ type: 'text', text: label });
+        group.images.forEach(img => {
+          parts.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
+        });
       }
     });
-    if (provider === 'anthropic') {
-      parts.push({ type: 'text', text: analyzePrompt });
-    } else {
-      parts.push({ type: 'text', text: analyzePrompt });
-    }
+    // Add the analysis prompt at the end
+    parts.push({ type: 'text', text: '\n' + analyzePrompt });
 
-    addMessageLog('USER', `[${competitorImages.length} 张参考截图] + 分析提示词`);
-    addLog('发送到 AI', 'thinking', `模型: ${model} | 截图: ${competitorImages.length} 张`);
+    addMessageLog('USER', `[${postGroups.length} 组帖子，共 ${totalImages} 张截图] + 分析提示词`);
+    addLog('发送到 AI', 'thinking', `模型: ${model} | ${postGroups.length} 组帖子 | ${totalImages} 张截图`);
 
     let fullText = '';
     if (provider === 'anthropic') {
