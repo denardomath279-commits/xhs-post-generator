@@ -533,6 +533,16 @@
       </button>
       <button class="btn btn-sm btn-outline" id="clearReportBtn" onclick="clearCompetitorReport()" style="display:none;">清除报告</button>
     </div>
+
+    <div style="margin-top:12px;">
+      <label style="font-size:13px;font-weight:500;">已保存的策略报告</label>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <select id="savedReports" onchange="loadSavedReport()" style="flex:1;font-size:13px;padding:6px 10px;">
+          <option value="">-- 无 --</option>
+        </select>
+        <button class="btn btn-sm btn-outline" style="padding:6px 12px;white-space:nowrap;font-size:12px;border-radius:6px;cursor:pointer;" onclick="deleteSavedReport()">删除</button>
+      </div>
+    </div>
   </div>
 
   <!-- 提示词模板 -->
@@ -1056,8 +1066,73 @@ function clearCompetitorReport() {
   document.getElementById('competitorReportArea').style.display = 'none';
   document.getElementById('competitorReportContent').textContent = '';
   document.getElementById('clearReportBtn').style.display = 'none';
-  showToast('已清除策略报告');
+  document.getElementById('savedReports').value = '';
+  showToast('已清除当前报告');
 }
+
+// ===== Saved Reports =====
+function getSavedReports() {
+  try { return JSON.parse(localStorage.getItem('xhs_reports') || '[]'); } catch(e) { return []; }
+}
+function setSavedReports(list) {
+  localStorage.setItem('xhs_reports', JSON.stringify(list));
+}
+function refreshReportSelect(selectName) {
+  const sel = document.getElementById('savedReports');
+  const reports = getSavedReports();
+  sel.innerHTML = '<option value="">-- 无 --</option>';
+  reports.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = r.name + '（' + r.date + '）';
+    sel.appendChild(opt);
+  });
+  if (selectName !== undefined) {
+    const idx = reports.findIndex(r => r.name === selectName);
+    if (idx >= 0) sel.value = idx;
+  }
+}
+function autoSaveReport(reportText) {
+  // Auto-generate name from product name + timestamp
+  const productName = document.getElementById('productName').value.trim() || '未命名';
+  const now = new Date();
+  const date = now.toLocaleDateString('zh-CN', {month:'2-digit',day:'2-digit'}) + ' ' + now.toLocaleTimeString('zh-CN', {hour12:false,hour:'2-digit',minute:'2-digit'});
+  const name = productName;
+  const reports = getSavedReports();
+  reports.unshift({ name, date, content: reportText });
+  // Keep max 20 reports
+  if (reports.length > 20) reports.length = 20;
+  setSavedReports(reports);
+  refreshReportSelect(name);
+}
+function loadSavedReport() {
+  const sel = document.getElementById('savedReports');
+  if (sel.value === '') {
+    clearCompetitorReport();
+    return;
+  }
+  const reports = getSavedReports();
+  const r = reports[parseInt(sel.value)];
+  if (!r) return;
+  competitorReport = r.content;
+  document.getElementById('competitorReportContent').textContent = r.content;
+  document.getElementById('competitorReportArea').style.display = 'block';
+  document.getElementById('clearReportBtn').style.display = 'inline-flex';
+  showToast('已加载报告：' + r.name);
+}
+function deleteSavedReport() {
+  const sel = document.getElementById('savedReports');
+  if (sel.value === '') { showToast('请先选择要删除的报告'); return; }
+  const reports = getSavedReports();
+  const idx = parseInt(sel.value);
+  const name = reports[idx]?.name || '';
+  if (!confirm('确定删除报告「' + name + '」？')) return;
+  reports.splice(idx, 1);
+  setSavedReports(reports);
+  refreshReportSelect();
+  showToast('已删除：' + name);
+}
+refreshReportSelect();
 
 async function analyzeCompetitors() {
   const hasContent = postGroups.some(g => g.title.trim() || g.body.trim() || g.contentImages.length > 0);
@@ -1201,7 +1276,11 @@ async function analyzeCompetitors() {
     document.getElementById('competitorReportContent').textContent = fullText;
     document.getElementById('competitorReportArea').style.display = 'block';
     document.getElementById('clearReportBtn').style.display = 'inline-flex';
-    showToast('参考帖子分析完成！生成帖子时将自动参考此报告');
+
+    // Auto-save report
+    autoSaveReport(fullText);
+
+    showToast('参考帖子分析完成！报告已自动保存');
   } catch(err) {
     addLog('分析失败', 'error', err.message);
     showToast('参考帖子分析失败: ' + err.message);
