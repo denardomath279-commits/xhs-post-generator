@@ -259,7 +259,7 @@
 
   /* Reference Post Analysis */
   .competitor-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; margin-top: 8px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 5px; margin-top: 6px;
   }
   .competitor-thumb {
     position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); cursor: pointer;
@@ -286,8 +286,19 @@
     font-size: 12px; cursor: pointer; color: var(--text-light); white-space: nowrap;
   }
   .post-group-header .del-group:hover { color: var(--red); border-color: var(--red); }
+  .post-group-section {
+    margin-bottom: 8px;
+  }
+  .post-group-section-label {
+    font-size: 12px; font-weight: 600; color: var(--text-light); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .post-group-section-label .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+  .post-group-section-label .dot-title { background: #f59e0b; }
+  .post-group-section-label .dot-body { background: #3b82f6; }
+  .post-group-section-label .dot-img { background: #10b981; }
   .post-group-upload {
-    border: 1.5px dashed var(--border); border-radius: 8px; padding: 12px; text-align: center;
+    border: 1.5px dashed var(--border); border-radius: 8px; padding: 10px; text-align: center;
     cursor: pointer; font-size: 12px; color: var(--text-light); transition: border-color 0.2s;
   }
   .post-group-upload:hover { border-color: var(--blue); color: var(--blue); }
@@ -880,30 +891,29 @@ function handleImageDrop(e) {
 }
 
 // ===== Reference Post Analysis (Grouped) =====
-let postGroups = []; // [{name: '帖子1', images: [{base64, mimeType, name}]}]
+// Each group has: name, titleImages[], bodyImages[], contentImages[]
+let postGroups = []; // [{name, titleImages: [], bodyImages: [], contentImages: []}]
 let competitorReport = ''; // strategy report text
 
-const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。我将按帖子分组发送截图，每组图片属于同一个帖子。请逐个帖子分析以下内容：
+const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。我将按帖子分组发送截图，每组帖子的截图分为"标题截图"、"正文截图"和"配图截图"三部分。请逐个帖子分析以下内容：
 
-1. **封面设计**：封面图的构图、色调、文字排版、视觉风格
-2. **标题套路**：标题的写法模式、关键词使用、情绪引导技巧
-3. **内容结构**：正文的段落结构、叙事方式、卖点呈现顺序
-4. **配图策略**：图片数量、拍摄角度、场景选择、后期处理风格
-5. **用户互动**：点赞/收藏/评论数据（如可见），分析高互动的原因
-6. **CTA设计**：行动号召的方式和位置
-7. **话题标签**：使用的话题标签策略
+1. **标题分析**：标题的写法模式、关键词使用、情绪引导技巧、字数控制
+2. **正文分析**：段落结构、叙事方式、卖点呈现顺序、语气风格、CTA设计
+3. **配图分析**：封面图构图、色调、文字排版、拍摄角度、场景选择、后期处理风格
+4. **用户互动**：点赞/收藏/评论数据（如可见），分析高互动的原因
+5. **话题标签**：使用的话题标签策略
 
 最后请给出一份综合策略建议，对比各帖子的优缺点，说明如何借鉴这些帖子的优点来创作新帖子。`;
 
 document.getElementById('analyzePrompt').value = DEFAULT_ANALYZE_PROMPT;
 
 function getTotalImages() {
-  return postGroups.reduce((sum, g) => sum + g.images.length, 0);
+  return postGroups.reduce((sum, g) => sum + g.titleImages.length + g.bodyImages.length + g.contentImages.length, 0);
 }
 
 function addPostGroup(name) {
   const idx = postGroups.length;
-  postGroups.push({ name: name || `参考帖子 ${idx + 1}`, images: [] });
+  postGroups.push({ name: name || `参考帖子 ${idx + 1}`, titleImages: [], bodyImages: [], contentImages: [] });
   renderPostGroups();
 }
 
@@ -912,7 +922,7 @@ function removePostGroup(idx) {
   renderPostGroups();
 }
 
-function handleGroupImageUpload(groupIdx, files) {
+function handleSectionUpload(groupIdx, section, files) {
   const totalNow = getTotalImages();
   const remaining = 50 - totalNow;
   const toProcess = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining);
@@ -924,7 +934,7 @@ function handleGroupImageUpload(groupIdx, files) {
       const dataUrl = reader.result;
       const [header, b64] = dataUrl.split(',');
       const mime = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      postGroups[groupIdx].images.push({ base64: b64, mimeType: mime, name: file.name });
+      postGroups[groupIdx][section].push({ base64: b64, mimeType: mime, name: file.name });
       loaded++;
       if (loaded === toProcess.length) renderPostGroups();
     };
@@ -932,13 +942,32 @@ function handleGroupImageUpload(groupIdx, files) {
   });
 }
 
-function removeGroupImage(groupIdx, imgIdx) {
-  postGroups[groupIdx].images.splice(imgIdx, 1);
+function removeSectionImage(groupIdx, section, imgIdx) {
+  postGroups[groupIdx][section].splice(imgIdx, 1);
   renderPostGroups();
 }
 
 function updateGroupName(groupIdx, name) {
   postGroups[groupIdx].name = name;
+}
+
+function buildThumbsHtml(images, groupIdx, section) {
+  return images.map((img, ii) =>
+    `<div class="competitor-thumb"><img src="data:${img.mimeType};base64,${img.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');"><div class="del" onclick="event.stopPropagation();removeSectionImage(${groupIdx},'${section}',${ii})">&times;</div></div>`
+  ).join('');
+}
+
+function buildSectionHtml(gi, section, label, dotClass, images) {
+  const thumbs = buildThumbsHtml(images, gi, section);
+  return `
+    <div class="post-group-section">
+      <div class="post-group-section-label"><span class="dot ${dotClass}"></span> ${label}（${images.length} 张）</div>
+      ${thumbs ? `<div class="competitor-grid">${thumbs}</div>` : ''}
+      <div class="post-group-upload" onclick="this.querySelector('input').click();" ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleSectionUpload(${gi},'${section}',event.dataTransfer.files);">
+        + 上传${label}截图
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="handleSectionUpload(${gi},'${section}',this.files)">
+      </div>
+    </div>`;
 }
 
 function renderPostGroups() {
@@ -947,21 +976,15 @@ function renderPostGroups() {
   postGroups.forEach((group, gi) => {
     const div = document.createElement('div');
     div.className = 'post-group';
-    let thumbsHtml = '';
-    group.images.forEach((img, ii) => {
-      thumbsHtml += `<div class="competitor-thumb"><img src="data:${img.mimeType};base64,${img.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');"><div class="del" onclick="event.stopPropagation();removeGroupImage(${gi},${ii})">&times;</div></div>`;
-    });
     div.innerHTML = `
       <div class="post-group-header">
         <span style="font-size:13px;font-weight:600;color:var(--blue);white-space:nowrap;">第 ${gi+1} 组</span>
         <input type="text" value="${escapeHtml(group.name)}" onchange="updateGroupName(${gi},this.value)" placeholder="帖子名称/备注">
         <button class="del-group" onclick="removePostGroup(${gi})">删除</button>
       </div>
-      ${thumbsHtml ? `<div class="competitor-grid">${thumbsHtml}</div>` : ''}
-      <div class="post-group-upload" onclick="this.querySelector('input').click();" ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleGroupImageUpload(${gi},event.dataTransfer.files);">
-        + 添加截图到这组（${group.images.length} 张）
-        <input type="file" accept="image/*" multiple style="display:none;" onchange="handleGroupImageUpload(${gi},this.files)">
-      </div>
+      ${buildSectionHtml(gi, 'titleImages', '标题', 'dot-title', group.titleImages)}
+      ${buildSectionHtml(gi, 'bodyImages', '正文', 'dot-body', group.bodyImages)}
+      ${buildSectionHtml(gi, 'contentImages', '配图', 'dot-img', group.contentImages)}
     `;
     container.appendChild(div);
   });
@@ -1002,26 +1025,35 @@ async function analyzeCompetitors() {
   const model = document.getElementById('textModel').value.trim();
 
   try {
-    // Build multimodal content with images grouped by post
+    // Build multimodal content with images grouped by post and section
     const parts = [];
-    postGroups.forEach((group, gi) => {
-      if (group.images.length === 0) return;
-      // Add text label before each group
-      const label = `\n--- 【${group.name || '参考帖子 ' + (gi+1)}】以下 ${group.images.length} 张图属于同一个帖子 ---\n`;
-      if (provider === 'anthropic') {
-        parts.push({ type: 'text', text: label });
-        group.images.forEach(img => {
-          parts.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
-        });
+    const isAnthropic = provider === 'anthropic';
+    function addImage(img) {
+      if (isAnthropic) {
+        parts.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
       } else {
-        parts.push({ type: 'text', text: label });
-        group.images.forEach(img => {
-          parts.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
-        });
+        parts.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
+      }
+    }
+    postGroups.forEach((group, gi) => {
+      const total = group.titleImages.length + group.bodyImages.length + group.contentImages.length;
+      if (total === 0) return;
+      parts.push({ type: 'text', text: `\n===== 【${group.name || '参考帖子 ' + (gi+1)}】=====` });
+      if (group.titleImages.length > 0) {
+        parts.push({ type: 'text', text: `\n📌 标题截图（${group.titleImages.length} 张）：` });
+        group.titleImages.forEach(addImage);
+      }
+      if (group.bodyImages.length > 0) {
+        parts.push({ type: 'text', text: `\n📝 正文截图（${group.bodyImages.length} 张）：` });
+        group.bodyImages.forEach(addImage);
+      }
+      if (group.contentImages.length > 0) {
+        parts.push({ type: 'text', text: `\n🖼️ 配图截图（${group.contentImages.length} 张）：` });
+        group.contentImages.forEach(addImage);
       }
     });
     // Add the analysis prompt at the end
-    parts.push({ type: 'text', text: '\n' + analyzePrompt });
+    parts.push({ type: 'text', text: '\n\n' + analyzePrompt });
 
     addMessageLog('USER', `[${postGroups.length} 组帖子，共 ${totalImages} 张截图] + 分析提示词`);
     addLog('发送到 AI', 'thinking', `模型: ${model} | ${postGroups.length} 组帖子 | ${totalImages} 张截图`);
