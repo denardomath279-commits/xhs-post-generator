@@ -257,6 +257,27 @@
   @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
   .ai-log-empty { color: #555570; text-align: center; padding: 40px 20px; font-size: 14px; }
 
+  /* Competitor Analysis */
+  .competitor-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; margin-top: 10px;
+  }
+  .competitor-thumb {
+    position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); cursor: pointer;
+  }
+  .competitor-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .competitor-thumb .del {
+    position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: rgba(0,0,0,0.6);
+    color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; line-height: 1;
+  }
+  .competitor-report {
+    background: #f8fafb; border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+    margin-top: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+    max-height: 400px; overflow-y: auto;
+  }
+  .analyze-prompt-area { display: none; }
+  .analyze-prompt-area.visible { display: block; }
+
   /* Lightbox */
   .lightbox {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -445,6 +466,49 @@
           <option value="minimal">极简杂志风</option>
         </select>
       </div>
+    </div>
+  </div>
+
+  <!-- 竞品分析 -->
+  <div class="card">
+    <div class="card-title"><span class="icon" style="background:var(--blue-light);color:var(--blue);">&#9733;</span> 竞品帖子分析（可选）</div>
+    <p class="tip" style="margin-bottom:12px;">上传同类产品的小红书帖子截图，AI 会分析这些帖子的策略，帮助生成更有竞争力的内容。</p>
+
+    <div id="competitorUploadArea" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:#fafafa;" onclick="document.getElementById('competitorFiles').click();" ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleCompetitorDrop(event);">
+      <div style="color:var(--text-light);font-size:14px;">点击上传或拖拽竞品帖子截图</div>
+      <div style="color:#bbb;font-size:12px;margin-top:4px;">支持 JPG/PNG，最多 20 张 | 也可以选择整个文件夹</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+        <input type="file" id="competitorFiles" accept="image/*" multiple style="display:none;" onchange="handleCompetitorUpload(this.files)">
+        <button class="btn btn-sm btn-outline" style="font-size:12px;" onclick="event.stopPropagation();document.getElementById('competitorFolder').click();">选择文件夹</button>
+        <input type="file" id="competitorFolder" webkitdirectory style="display:none;" onchange="handleCompetitorUpload(this.files)">
+      </div>
+    </div>
+
+    <div class="competitor-grid" id="competitorPreviewGrid"></div>
+
+    <div style="margin-top:12px;">
+      <div class="template-toggle" onclick="toggleAnalyzePrompt()">
+        <span class="arrow" id="analyzePromptArrow">&#9654;</span> 编辑分析提示词（高级用户）
+      </div>
+      <div class="analyze-prompt-area" id="analyzePromptArea">
+        <div class="form-group">
+          <textarea id="analyzePrompt" rows="12"></textarea>
+          <p class="tip">这是分析竞品截图的提示词，修改后将影响策略报告质量。</p>
+          <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="resetAnalyzePrompt()">恢复默认</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button class="btn btn-sm btn-blue" id="analyzeBtn" onclick="analyzeCompetitors()" style="flex:1;padding:12px;">
+        分析竞品截图
+      </button>
+      <button class="btn btn-sm btn-outline" id="clearReportBtn" onclick="clearCompetitorReport()" style="display:none;">清除报告</button>
+    </div>
+
+    <div id="competitorReportArea" style="display:none;margin-top:14px;">
+      <label style="font-size:13px;font-weight:600;color:var(--blue);">策略分析报告</label>
+      <div class="competitor-report" id="competitorReportContent"></div>
     </div>
   </div>
 
@@ -667,6 +731,7 @@ function saveConfig() {
       textBaseUrl: document.getElementById('textBaseUrl').value,
       imgBaseUrl: document.getElementById('imgBaseUrl').value,
       prompt: document.getElementById('systemPrompt').value,
+      analyzePrompt: document.getElementById('analyzePrompt').value,
       promptVersion: 4
     }));
   } catch(e) {}
@@ -798,6 +863,225 @@ function handleImageDrop(e) {
   const files = e.dataTransfer.files;
   handleImageUpload(files);
 }
+
+// ===== Competitor Screenshot Analysis =====
+let competitorImages = []; // [{base64, mimeType, name}]
+let competitorReport = ''; // strategy report text
+
+const DEFAULT_ANALYZE_PROMPT = `你是一位小红书内容分析专家。请仔细观察这些小红书帖子截图，分析以下内容：
+
+1. **封面设计**：封面图的构图、色调、文字排版、视觉风格
+2. **标题套路**：标题的写法模式、关键词使用、情绪引导技巧
+3. **内容结构**：正文的段落结构、叙事方式、卖点呈现顺序
+4. **配图策略**：图片数量、拍摄角度、场景选择、后期处理风格
+5. **用户互动**：点赞/收藏/评论数据（如可见），分析高互动的原因
+6. **CTA设计**：行动号召的方式和位置
+7. **话题标签**：使用的话题标签策略
+
+最后请给出一份综合策略建议，说明如何借鉴这些帖子的优点来创作新帖子。`;
+
+document.getElementById('analyzePrompt').value = DEFAULT_ANALYZE_PROMPT;
+
+function handleCompetitorUpload(files) {
+  const remaining = 20 - competitorImages.length;
+  const toProcess = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining);
+  let loaded = 0;
+  toProcess.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const [header, b64] = dataUrl.split(',');
+      const mime = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+      competitorImages.push({ base64: b64, mimeType: mime, name: file.name });
+      loaded++;
+      if (loaded === toProcess.length) renderCompetitorPreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+  if (toProcess.length === 0 && files.length > 0) showToast('未找到图片文件');
+}
+function handleCompetitorDrop(e) {
+  handleCompetitorUpload(e.dataTransfer.files);
+}
+function removeCompetitorImage(idx) {
+  competitorImages.splice(idx, 1);
+  renderCompetitorPreviews();
+}
+function renderCompetitorPreviews() {
+  const grid = document.getElementById('competitorPreviewGrid');
+  grid.innerHTML = '';
+  competitorImages.forEach((img, i) => {
+    const div = document.createElement('div');
+    div.className = 'competitor-thumb';
+    div.innerHTML = `<img src="data:${img.mimeType};base64,${img.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');"><div class="del" onclick="event.stopPropagation();removeCompetitorImage(${i})">&times;</div>`;
+    grid.appendChild(div);
+  });
+  document.getElementById('competitorUploadArea').style.display = competitorImages.length >= 20 ? 'none' : 'block';
+}
+function toggleAnalyzePrompt() {
+  const area = document.getElementById('analyzePromptArea');
+  const arrow = document.getElementById('analyzePromptArrow');
+  area.classList.toggle('visible');
+  arrow.style.transform = area.classList.contains('visible') ? 'rotate(90deg)' : '';
+}
+function resetAnalyzePrompt() {
+  document.getElementById('analyzePrompt').value = DEFAULT_ANALYZE_PROMPT;
+  showToast('已恢复默认分析提示词');
+}
+function clearCompetitorReport() {
+  competitorReport = '';
+  document.getElementById('competitorReportArea').style.display = 'none';
+  document.getElementById('competitorReportContent').textContent = '';
+  document.getElementById('clearReportBtn').style.display = 'none';
+  showToast('已清除策略报告');
+}
+
+async function analyzeCompetitors() {
+  if (competitorImages.length === 0) { showToast('请先上传竞品帖子截图'); return; }
+  const key = document.getElementById('anthropicKey').value.trim();
+  if (!key) { showToast('请先填写文案 API Key'); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner-sm"></span> 正在分析竞品...';
+  clearLog();
+  addLog('竞品分析', 'info', `开始分析 ${competitorImages.length} 张竞品截图...`);
+
+  const analyzePrompt = document.getElementById('analyzePrompt').value.trim() || DEFAULT_ANALYZE_PROMPT;
+  const provider = document.getElementById('textProvider').value;
+  const model = document.getElementById('textModel').value.trim();
+
+  try {
+    // Build multimodal content with all competitor images
+    const parts = [];
+    competitorImages.forEach((img, i) => {
+      if (provider === 'anthropic') {
+        parts.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
+      } else {
+        parts.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
+      }
+    });
+    if (provider === 'anthropic') {
+      parts.push({ type: 'text', text: analyzePrompt });
+    } else {
+      parts.push({ type: 'text', text: analyzePrompt });
+    }
+
+    addMessageLog('USER', `[${competitorImages.length} 张竞品截图] + 分析提示词`);
+    addLog('发送到 AI', 'thinking', `模型: ${model} | 截图: ${competitorImages.length} 张`);
+
+    let fullText = '';
+    if (provider === 'anthropic') {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: model || 'claude-opus-4-6',
+          max_tokens: 8192,
+          stream: true,
+          messages: [{ role: 'user', content: parts }]
+        })
+      });
+      if (!resp.ok) throw new Error(`API (${resp.status}): ${await resp.text()}`);
+      const streamEl = addStreamLog('分析输出', 'generating');
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+          try {
+            const evt = JSON.parse(jsonStr);
+            if (evt.type === 'content_block_delta' && evt.delta?.text) {
+              fullText += evt.delta.text;
+              streamEl.textContent = fullText;
+              document.getElementById('aiLogBody').scrollTop = document.getElementById('aiLogBody').scrollHeight;
+            }
+          } catch(e) {}
+        }
+      }
+    } else {
+      let url = 'https://yunwu.ai/v1/chat/completions';
+      if (provider === 'openrouter') url = 'https://openrouter.ai/api/v1/chat/completions';
+      else if (provider === 'custom_openai') url = document.getElementById('textBaseUrl').value.trim();
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model: model || 'claude-opus-4-6',
+          messages: [{ role: 'user', content: parts }],
+          max_tokens: 8192,
+          temperature: 0.5,
+          stream: true
+        })
+      });
+      if (!resp.ok) throw new Error(`API (${resp.status}): ${await resp.text()}`);
+      const streamEl = addStreamLog('分析输出', 'generating');
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+          try {
+            const evt = JSON.parse(jsonStr);
+            const delta = evt.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullText += delta;
+              streamEl.textContent = fullText;
+              document.getElementById('aiLogBody').scrollTop = document.getElementById('aiLogBody').scrollHeight;
+            }
+          } catch(e) {}
+        }
+      }
+    }
+
+    competitorReport = fullText;
+    addLog('分析完成', 'success', `策略报告共 ${fullText.length} 字`);
+
+    // Show report
+    document.getElementById('competitorReportContent').textContent = fullText;
+    document.getElementById('competitorReportArea').style.display = 'block';
+    document.getElementById('clearReportBtn').style.display = 'inline-flex';
+    showToast('竞品分析完成！生成帖子时将自动参考此报告');
+  } catch(err) {
+    addLog('分析失败', 'error', err.message);
+    showToast('竞品分析失败: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '分析竞品截图';
+  }
+}
+
+// Restore saved analyze prompt
+try {
+  const s = JSON.parse(localStorage.getItem('xhs_gen_v3') || '{}');
+  if (s.analyzePrompt) document.getElementById('analyzePrompt').value = s.analyzePrompt;
+} catch(e) {}
 function removeUploadedImage(idx) {
   uploadedImages.splice(idx, 1);
   renderImagePreviews();
@@ -1380,6 +1664,12 @@ async function generate() {
     // Append search insights to user message if available
     if (searchInsights) {
       userMessage += `\n\n## 市场调研参考（来自全网搜索）\n以下是该类产品在小红书上的爆款帖子分析，请参考这些真实案例的标题风格、文案结构、配图策略来生成内容，尤其是图片提示词要参考成功案例的拍摄风格和构图：\n\n${searchInsights}`;
+    }
+
+    // Append competitor analysis report if available
+    if (competitorReport) {
+      userMessage += `\n\n## 竞品帖子分析报告\n以下是对竞品小红书帖子截图的详细分析报告，请参考这些真实案例的设计策略、标题套路、配图风格来生成更有竞争力的内容：\n\n${competitorReport}`;
+      addLog('参考竞品报告', 'info', `附加竞品分析报告 ${competitorReport.length} 字`);
     }
 
     // Show full conversation in log
