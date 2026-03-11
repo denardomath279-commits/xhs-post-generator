@@ -312,6 +312,84 @@
   .analyze-prompt-area { display: none; }
   .analyze-prompt-area.visible { display: block; }
 
+  /* Photo Library Modal */
+  .photo-lib-modal {
+    display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center;
+  }
+  .photo-lib-modal.active { display: flex; }
+  .photo-lib-inner {
+    background: white; width: 96vw; height: 92vh; border-radius: 16px;
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  }
+  .photo-lib-toolbar {
+    display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+    border-bottom: 1px solid var(--border); background: #fafafa; flex-shrink: 0;
+  }
+  .photo-lib-toolbar h2 { font-size: 18px; font-weight: 700; margin-right: auto; }
+  .photo-lib-search {
+    width: 260px; padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 13px; outline: none; background: white;
+  }
+  .photo-lib-search:focus { border-color: var(--blue); }
+  .photo-lib-close {
+    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text-light); transition: all 0.2s;
+  }
+  .photo-lib-close:hover { background: var(--red-light); color: var(--red); border-color: var(--red); }
+  .photo-lib-grid {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px;
+    align-content: start;
+  }
+  .photo-lib-grid::-webkit-scrollbar { width: 6px; }
+  .photo-lib-grid::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+  .photo-lib-empty {
+    grid-column: 1 / -1; text-align: center; padding: 80px 20px;
+    color: var(--text-light); font-size: 15px;
+  }
+  .photo-lib-item {
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    background: white; transition: all 0.2s; position: relative;
+  }
+  .photo-lib-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); transform: translateY(-2px); }
+  .photo-lib-item-img {
+    width: 100%; aspect-ratio: 1; object-fit: cover; display: block; cursor: pointer;
+  }
+  .photo-lib-item-info { padding: 10px 12px; }
+  .photo-lib-item-desc {
+    font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 6px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .photo-lib-item-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .photo-lib-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500;
+  }
+  .photo-lib-item-actions {
+    display: flex; gap: 4px; padding: 0 12px 10px; flex-wrap: wrap;
+  }
+  .photo-lib-item-actions button {
+    flex: 1; padding: 5px 4px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border);
+    background: white; cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  }
+  .photo-lib-item-actions button:hover { border-color: var(--blue); color: var(--blue); }
+  .photo-lib-item-actions button.del-photo:hover { border-color: var(--red); color: var(--red); }
+  .photo-lib-item .analyzing-badge {
+    position: absolute; top: 8px; right: 8px; background: rgba(59,130,246,0.9);
+    color: white; font-size: 11px; padding: 2px 8px; border-radius: 6px;
+  }
+  .photo-lib-footer {
+    padding: 10px 20px; border-top: 1px solid var(--border); background: #fafafa;
+    font-size: 12px; color: var(--text-light); display: flex; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  @media (max-width: 600px) {
+    .photo-lib-inner { width: 100vw; height: 100vh; border-radius: 0; }
+    .photo-lib-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 10px; }
+    .photo-lib-search { width: 140px; }
+  }
+
   /* Lightbox */
   .lightbox {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -330,6 +408,7 @@
 <div class="header">
   <h1>小红书投流帖子生成器</h1>
   <p>Claude 4.6 生成文案 + Google Gemini 生成配图，一站式完成</p>
+  <button onclick="openPhotoLib()" style="margin-top:12px;padding:8px 24px;border:2px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.15);color:white;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">📷 素材图片库</button>
 </div>
 
 <div class="container">
@@ -639,6 +718,28 @@
 
 <div class="toast" id="toast"></div>
 <div class="lightbox" id="lightbox" onclick="this.classList.remove('active')"><img id="lightboxImg"></div>
+
+<!-- Photo Library Modal -->
+<div class="photo-lib-modal" id="photoLibModal">
+  <div class="photo-lib-inner">
+    <div class="photo-lib-toolbar">
+      <h2>📷 素材图片库</h2>
+      <input type="text" class="photo-lib-search" id="photoLibSearch" placeholder="搜索标签或描述..." oninput="renderPhotoLib()">
+      <label class="btn btn-sm btn-blue" style="margin:0;cursor:pointer;padding:8px 16px;">
+        上传图片
+        <input type="file" multiple accept="image/*" style="display:none;" onchange="handlePhotoLibUpload(this.files)">
+      </label>
+      <button class="photo-lib-close" onclick="closePhotoLib()">✕</button>
+    </div>
+    <div class="photo-lib-grid" id="photoLibGrid">
+      <div class="photo-lib-empty">暂无素材，点击「上传图片」添加</div>
+    </div>
+    <div class="photo-lib-footer">
+      <span id="photoLibCount">共 0 张图片</span>
+      <span id="photoLibSize">占用 0 KB</span>
+    </div>
+  </div>
+</div>
 
 <script>
 const DEFAULT_PROMPT = `你是一位顶级小红书投流内容操盘手，精通平台算法机制、用户心理学和高转化广告文案创作。
@@ -2049,6 +2150,290 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
 }
+// ===== Photo Library System (IndexedDB) =====
+const PhotoDB = {
+  db: null,
+  async open() {
+    if (this.db) return this.db;
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('xhs_photo_lib', 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('photos')) {
+          const store = db.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
+          store.createIndex('addedAt', 'addedAt');
+        }
+      };
+      req.onsuccess = (e) => { this.db = e.target.result; resolve(this.db); };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
+  async add(photo) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('photos', 'readwrite');
+      const req = tx.objectStore('photos').add(photo);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async getAll() {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('photos', 'readonly');
+      const req = tx.objectStore('photos').getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async get(id) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('photos', 'readonly');
+      const req = tx.objectStore('photos').get(id);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async update(id, fields) {
+    const db = await this.open();
+    return new Promise(async (resolve, reject) => {
+      const photo = await this.get(id);
+      if (!photo) return reject(new Error('Photo not found'));
+      Object.assign(photo, fields);
+      const tx = db.transaction('photos', 'readwrite');
+      const req = tx.objectStore('photos').put(photo);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async delete(id) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('photos', 'readwrite');
+      const req = tx.objectStore('photos').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+};
+
+function compressImage(file, maxWidth = 1200, quality = 0.8) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const [header, b64] = dataUrl.split(',');
+        resolve({ base64: b64, mimeType: 'image/jpeg', width: w, height: h, size: Math.round(b64.length * 0.75) });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+const TAG_COLORS = ['#fff0f2','#eff6ff','#ecfdf5','#fef3c7','#fdf2f8','#f0f9ff','#f5f3ff','#fefce8'];
+const TAG_TEXT_COLORS = ['#ff2442','#3b82f6','#10b981','#f59e0b','#ec4899','#0ea5e9','#8b5cf6','#ca8a04'];
+
+function openPhotoLib() {
+  document.getElementById('photoLibModal').classList.add('active');
+  renderPhotoLib();
+}
+function closePhotoLib() {
+  document.getElementById('photoLibModal').classList.remove('active');
+}
+
+async function renderPhotoLib() {
+  const grid = document.getElementById('photoLibGrid');
+  const keyword = (document.getElementById('photoLibSearch').value || '').trim().toLowerCase();
+  let photos = await PhotoDB.getAll();
+  photos.sort((a, b) => b.addedAt - a.addedAt);
+
+  if (keyword) {
+    photos = photos.filter(p => {
+      const tagMatch = (p.tags || []).some(t => t.toLowerCase().includes(keyword));
+      const descMatch = (p.description || '').toLowerCase().includes(keyword);
+      const nameMatch = (p.name || '').toLowerCase().includes(keyword);
+      return tagMatch || descMatch || nameMatch;
+    });
+  }
+
+  if (photos.length === 0) {
+    grid.innerHTML = `<div class="photo-lib-empty">${keyword ? '没有匹配的图片' : '暂无素材，点击「上传图片」添加'}</div>`;
+  } else {
+    grid.innerHTML = photos.map(p => {
+      const tags = (p.tags || []).map((t, i) => {
+        const ci = i % TAG_COLORS.length;
+        return `<span class="photo-lib-tag" style="background:${TAG_COLORS[ci]};color:${TAG_TEXT_COLORS[ci]};">${escapeHtml(t)}</span>`;
+      }).join('');
+      const desc = p.description && p.description !== '分析中...' ? escapeHtml(p.description) : (p.description === '分析中...' ? '<i>AI 分析中...</i>' : '');
+      const analyzing = (!p.tags || p.tags.length === 0) && p.description === '分析中...' ? '<span class="analyzing-badge"><span class="loading-spinner-sm" style="border-top-color:white;width:10px;height:10px;border-width:1.5px;margin-right:4px;vertical-align:middle;"></span>分析中</span>' : '';
+      return `<div class="photo-lib-item" data-id="${p.id}">
+        ${analyzing}
+        <img class="photo-lib-item-img" src="data:${p.mimeType};base64,${p.base64}" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');" title="${escapeHtml(p.name)}">
+        <div class="photo-lib-item-info">
+          <div class="photo-lib-item-desc">${desc}</div>
+          <div class="photo-lib-item-tags">${tags}</div>
+        </div>
+        <div class="photo-lib-item-actions">
+          <button onclick="useAsProductImg(${p.id})">产品图</button>
+          <button onclick="useAsRefImg(${p.id})">参考图</button>
+          <button class="del-photo" onclick="deletePhoto(${p.id})">删除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Update footer
+  const allPhotos = await PhotoDB.getAll();
+  const totalSize = allPhotos.reduce((s, p) => s + (p.size || 0), 0);
+  document.getElementById('photoLibCount').textContent = `共 ${allPhotos.length} 张图片`;
+  document.getElementById('photoLibSize').textContent = `占用 ${totalSize > 1048576 ? (totalSize / 1048576).toFixed(1) + ' MB' : Math.round(totalSize / 1024) + ' KB'}`;
+}
+
+async function handlePhotoLibUpload(files) {
+  const arr = Array.from(files).filter(f => f.type.startsWith('image/'));
+  if (arr.length === 0) return;
+  showToast(`正在处理 ${arr.length} 张图片...`);
+
+  const ids = [];
+  for (const file of arr) {
+    const compressed = await compressImage(file);
+    const id = await PhotoDB.add({
+      base64: compressed.base64,
+      mimeType: compressed.mimeType,
+      name: file.name,
+      tags: [],
+      description: '分析中...',
+      addedAt: Date.now(),
+      size: compressed.size
+    });
+    ids.push(id);
+  }
+  renderPhotoLib();
+  showToast(`已添加 ${arr.length} 张图片，AI 正在分析打标...`);
+
+  // AI tagging in background
+  for (const id of ids) {
+    aiTagPhoto(id);
+  }
+}
+
+async function aiTagPhoto(id) {
+  try {
+    const key = document.getElementById('anthropicKey').value.trim();
+    const model = document.getElementById('textModel').value.trim();
+    const provider = document.getElementById('textProvider').value;
+    if (!key) {
+      await PhotoDB.update(id, { description: '请先配置文案API Key', tags: ['未分析'] });
+      renderPhotoLib();
+      return;
+    }
+    const photo = await PhotoDB.get(id);
+    if (!photo) return;
+
+    const tagPrompt = '请用中文为这张图片生成3-5个关键标签和一句话描述（15字以内）。只返回JSON，不要其他内容：{"tags":["标签1","标签2"],"description":"一句话描述"}';
+
+    let result;
+    if (provider === 'anthropic') {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: model || 'claude-opus-4-6',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: photo.mimeType, data: photo.base64 } },
+            { type: 'text', text: tagPrompt }
+          ]}]
+        })
+      });
+      if (!resp.ok) throw new Error(`API ${resp.status}`);
+      const data = await resp.json();
+      result = data.content?.[0]?.text || '';
+    } else {
+      let url = 'https://openrouter.ai/api/v1/chat/completions';
+      if (provider === 'yunwu') url = 'https://yunwu.ai/v1/chat/completions';
+      else if (provider === 'custom_openai') url = document.getElementById('textBaseUrl').value.trim();
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model: model || 'claude-opus-4-6',
+          messages: [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: `data:${photo.mimeType};base64,${photo.base64}` } },
+            { type: 'text', text: tagPrompt }
+          ]}],
+          max_tokens: 256
+        })
+      });
+      if (!resp.ok) throw new Error(`API ${resp.status}`);
+      const data = await resp.json();
+      result = data.choices?.[0]?.message?.content || '';
+    }
+
+    // Parse JSON from response
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      await PhotoDB.update(id, {
+        tags: parsed.tags || [],
+        description: parsed.description || '无描述'
+      });
+    } else {
+      await PhotoDB.update(id, { tags: ['图片'], description: result.slice(0, 50) });
+    }
+  } catch (err) {
+    console.error('AI tag error:', err);
+    await PhotoDB.update(id, { description: '分析失败: ' + err.message, tags: ['未分析'] });
+  }
+  renderPhotoLib();
+}
+
+async function deletePhoto(id) {
+  if (!confirm('确定删除这张图片？')) return;
+  await PhotoDB.delete(id);
+  renderPhotoLib();
+  showToast('已删除');
+}
+
+async function useAsProductImg(id) {
+  if (uploadedImages.length >= 3) { showToast('产品图最多3张'); return; }
+  const photo = await PhotoDB.get(id);
+  if (!photo) return;
+  uploadedImages.push({ base64: photo.base64, mimeType: photo.mimeType, name: photo.name });
+  renderImagePreviews();
+  showToast('已添加为产品图');
+}
+
+async function useAsRefImg(id) {
+  if (postGroups.length === 0) { showToast('请先添加一个参考帖子分组'); return; }
+  const photo = await PhotoDB.get(id);
+  if (!photo) return;
+  const totalImages = postGroups.reduce((s, g) => s + g.contentImages.length, 0);
+  if (totalImages >= 50) { showToast('参考图片已达上限 50 张'); return; }
+  // Add to the last group
+  const lastGroup = postGroups[postGroups.length - 1];
+  lastGroup.contentImages.push({ base64: photo.base64, mimeType: photo.mimeType, name: photo.name });
+  renderPostGroups();
+  showToast(`已添加到参考帖「${lastGroup.name}」`);
+}
+
+// Initialize PhotoDB on page load
+PhotoDB.open().catch(e => console.warn('PhotoDB init:', e));
+
 </script>
 </body>
 </html>
