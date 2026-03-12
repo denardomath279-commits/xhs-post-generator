@@ -1965,29 +1965,11 @@ async function generate() {
   addLog('开始生成', 'info', `产品: ${document.getElementById('productName').value.trim()}` + (uploadedImages.length ? ` | 已上传 ${uploadedImages.length} 张产品图` : ''));
 
   try {
-    // Step 1: Web search for product insights
-    addLog('第一步：市场调研', 'info', '正在搜索小红书上同类产品的爆款帖子策略...');
-    btn.innerHTML = '<span class="loading-spinner"></span> 正在搜索全网参考资料...';
-    const productName = document.getElementById('productName').value.trim();
-    const productType = document.getElementById('productType').value.trim();
-    const targetAudience = document.getElementById('targetAudience').value.trim();
-    let searchInsights = null;
-    try {
-      searchInsights = await searchProductInsights(productName, productType, targetAudience);
-    } catch(searchErr) {
-      addLog('搜索跳过', 'error', '搜索失败，将直接生成: ' + searchErr.message);
-    }
-
-    // Step 2: Generate post with search insights
-    addLog('第二步：生成帖子', 'info', '基于市场调研结果生成高转化帖子...');
+    // Generate post
+    addLog('开始生成帖子', 'info', '正在生成高转化帖子...');
     btn.innerHTML = '<span class="loading-spinner"></span> AI 正在生成文案...';
     const systemPrompt = document.getElementById('systemPrompt').value;
     let userMessage = buildUserMessage();
-
-    // Append search insights to user message if available
-    if (searchInsights) {
-      userMessage += `\n\n## 市场调研参考（来自全网搜索）\n以下是该类产品在小红书上的爆款帖子分析，请参考这些真实案例的标题风格、文案结构、配图策略来生成内容，尤其是图片提示词要参考成功案例的拍摄风格和构图：\n\n${searchInsights}`;
-    }
 
     // Append competitor analysis report if available
     if (competitorReport) {
