@@ -776,6 +776,7 @@ const DEFAULT_PROMPT = `你是一位顶级小红书投流内容操盘手，精�
 - 每张图的提示词需包含：主体描述、场景环境、光线、色调、拍摄风格、构图说明
 - 适配小红书竖版 3:4 比例
 - 提示词末尾加上用户选择的图片风格要求
+- 【重要】每张图片必须在第一行标注用途分类，格式为 [用途：xxx]，可选分类：封面图、产品展示图、信任建立图、使用前的状态图、痛点呈现图、效果对比图、使用后的状态图、产品成分图、场景图、细节特写图、用户评价图、促销活动图
 
 ## 输出格式（严格按此格式，不要加额外说明）
 
@@ -788,12 +789,14 @@ const DEFAULT_PROMPT = `你是一位顶级小红书投流内容操盘手，精�
 （正文内容）
 
 ---IMAGE_1---
+[用途：封面图]
 （第1张图片的中文提示词）
 
 ---IMAGE_2---
+[用途：产品展示图]
 （第2张图片的中文提示词）
 
-（以此类推，根据指定图片数量生成对应数量的 IMAGE 块）`;
+（以此类推，根据指定图片数量生成对应数量的 IMAGE 块，每块第一行必须标注用途）`;
 
 document.getElementById('systemPrompt').value = DEFAULT_PROMPT;
 
@@ -1930,7 +1933,12 @@ function parseOutput(text) {
   const imgRegex = /---IMAGE_(\d+)---([\s\S]*?)(?=---IMAGE_\d+---|$)/g;
   let m;
   while ((m = imgRegex.exec(text)) !== null) {
-    result.images.push({ index: parseInt(m[1]), prompt: m[2].trim() });
+    const raw = m[2].trim();
+    // Extract purpose tag like [用途：封面图]
+    const purposeMatch = raw.match(/\[用途[：:]\s*(.+?)\]/);
+    const purpose = purposeMatch ? purposeMatch[1].trim() : '';
+    const prompt = purposeMatch ? raw.replace(purposeMatch[0], '').trim() : raw;
+    result.images.push({ index: parseInt(m[1]), prompt, purpose });
   }
   if (!result.titles && !result.body && result.images.length === 0) {
     result.body = text;
@@ -2026,9 +2034,10 @@ function renderImageCards(images) {
     const card = document.createElement('div');
     card.className = 'img-card';
     card.id = `imgCard_${img.index}`;
+    const purposeBadge = img.purpose ? `<span style="background:#eff6ff;color:#3b82f6;font-size:12px;padding:2px 10px;border-radius:6px;font-weight:600;margin-left:8px;">${escapeHtml(img.purpose)}</span>` : '';
     card.innerHTML = `
       <div class="img-card-header">
-        <span class="img-card-label">第 ${img.index} 张图片</span>
+        <span class="img-card-label">第 ${img.index} 张图片${purposeBadge}</span>
         <div class="img-card-actions">
           <button class="btn btn-sm btn-outline" onclick="copyPrompt(${idx})">复制提示词</button>
           <button class="btn btn-sm btn-blue" id="imgBtn_${img.index}" onclick="generateSingleImage(${idx})">生成图片</button>
@@ -2041,9 +2050,66 @@ function renderImageCards(images) {
         <div class="placeholder">点击「生成图片」按钮生成配图</div>
       </div>
       <div class="img-status" id="imgStatus_${img.index}"></div>
+      <div id="imgLibMatch_${img.index}" style="border-top:1px solid var(--border);padding:12px 16px;display:none;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:8px;">📷 素材库参考（匹配：${escapeHtml(img.purpose || '相关')}）</div>
+        <div id="imgLibMatchGrid_${img.index}" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;"></div>
+      </div>
     `;
     container.appendChild(card);
+
+    // Match library photos by purpose
+    if (img.purpose) matchLibraryPhotos(img.index, img.purpose, img.prompt);
   });
+}
+
+async function matchLibraryPhotos(imgIndex, purpose, prompt) {
+  try {
+    const allPhotos = await PhotoDB.getAll();
+    if (allPhotos.length === 0) return;
+
+    // Score each photo by tag/description match
+    const keywords = [purpose];
+    // Also extract keywords from prompt for broader matching
+    const promptWords = prompt.replace(/[，。、！？\s]+/g, ' ').split(' ').filter(w => w.length >= 2).slice(0, 8);
+    keywords.push(...promptWords);
+
+    const scored = allPhotos.map(p => {
+      let score = 0;
+      const tags = (p.tags || []).map(t => t.toLowerCase());
+      const desc = (p.description || '').toLowerCase();
+      const purposeLower = purpose.toLowerCase();
+
+      // Highest priority: exact purpose match in tags
+      if (tags.some(t => t.includes(purposeLower) || purposeLower.includes(t))) score += 10;
+
+      // Medium: keyword matches
+      for (const kw of promptWords) {
+        const kwl = kw.toLowerCase();
+        if (tags.some(t => t.includes(kwl))) score += 2;
+        if (desc.includes(kwl)) score += 1;
+      }
+
+      return { photo: p, score };
+    }).filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+
+    if (scored.length === 0) return;
+
+    const container = document.getElementById(`imgLibMatchGrid_${imgIndex}`);
+    const wrapper = document.getElementById(`imgLibMatch_${imgIndex}`);
+    if (!container || !wrapper) return;
+
+    wrapper.style.display = 'block';
+    container.innerHTML = scored.map(s => {
+      const p = s.photo;
+      const tagStr = (p.tags || []).slice(0, 2).join('·');
+      return `<div style="flex-shrink:0;width:100px;text-align:center;">
+        <img src="data:${p.mimeType};base64,${p.base64}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="document.getElementById('lightboxImg').src=this.src;document.getElementById('lightbox').classList.add('active');" title="${escapeHtml(p.description || '')}">
+        <div style="font-size:10px;color:var(--text-light);margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escapeHtml(tagStr)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.warn('matchLibraryPhotos error:', e);
+  }
 }
 
 async function generateSingleImage(idx) {
@@ -2339,7 +2405,7 @@ async function aiTagPhoto(id) {
     const photo = await PhotoDB.get(id);
     if (!photo) return;
 
-    const tagPrompt = '请用中文为这张图片生成3-5个关键标签和一句话描述（15字以内）。只返回JSON，不要其他内容：{"tags":["标签1","标签2"],"description":"一句话描述"}';
+    const tagPrompt = '请用中文分析这张图片。\n1. 从以下内容用途分类中选择最匹配的1-2个：信任建立图、使用前的状态图、痛点呈现图、效果对比图、使用后的状态图、产品成分图、产品展示图、封面图、场景图、细节特写图、用户评价图、促销活动图\n2. 再生成2-3个描述图片内容的关键词标签\n3. 一句话描述（15字以内）\n只返回JSON：{"tags":["用途分类标签","内容标签1","内容标签2"],"description":"一句话描述"}';
 
     let result;
     if (provider === 'anthropic') {
