@@ -834,7 +834,7 @@ try {
   if (s.imageProvider) { document.getElementById('imageProvider').value = s.imageProvider; onImageProviderChange(); }
   if (s.textBaseUrl) document.getElementById('textBaseUrl').value = s.textBaseUrl;
   if (s.imgBaseUrl) document.getElementById('imgBaseUrl').value = s.imgBaseUrl;
-  if (s.prompt && s.promptVersion === 4) document.getElementById('systemPrompt').value = s.prompt;
+  if (s.prompt && s.promptVersion === 5) document.getElementById('systemPrompt').value = s.prompt;
   // Re-apply model values after provider change
   if (s.textModel) document.getElementById('textModel').value = s.textModel;
   if (s.imageModel) document.getElementById('imageModel').value = s.imageModel;
@@ -881,7 +881,7 @@ function saveConfig() {
       imgBaseUrl: document.getElementById('imgBaseUrl').value,
       prompt: document.getElementById('systemPrompt').value,
       analyzePrompt: document.getElementById('analyzePrompt').value,
-      promptVersion: 4
+      promptVersion: 5
     }));
   } catch(e) {}
 }
